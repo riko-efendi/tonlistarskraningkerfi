@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * @file
+ * Install, uninstall and update hooks for Media entity Spotify module.
+ */
+
+use Drupal\Core\File\FileSystemInterface;
+
+/**
+ * Implements hook_install().
+ */
+function media_entity_spotify_install() {
+  // Copy the default Spotify icon to the public files directory.
+  $source = \Drupal::service('extension.list.module')->getPath('media_entity_spotify') . '/images/icons';
+  $destination = 'public://media-icons/generic';
+
+  /** @var \Drupal\Core\File\FileSystemInterface $file_system */
+  $file_system = \Drupal::service('file_system');
+
+  // Ensure the destination directory exists.
+  $file_system->prepareDirectory($destination, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
+
+  // Copy icon files if the source directory exists.
+  if (is_dir($source)) {
+    $files = $file_system->scanDirectory($source, '/.*\.(svg|png|jpg|jpeg|gif)$/');
+    foreach ($files as $file) {
+      // Check if icon already exists to prevent overwriting custom icons.
+      if (!file_exists($destination . '/' . $file->filename)) {
+        try {
+          $file_system->copy($file->uri, $destination . '/' . $file->filename, FileSystemInterface::EXISTS_REPLACE);
+        }
+        catch (\Exception $e) {
+          \Drupal::logger('media_entity_spotify')->error('Failed to copy icon file: @file', ['@file' => $file->filename]);
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+name: Media Entity Spotify
+type: module
+description: Provides Spotify media source for Drupal core Media module.
+core_version_requirement: ^11
+package: Media
+dependencies:
+  - media

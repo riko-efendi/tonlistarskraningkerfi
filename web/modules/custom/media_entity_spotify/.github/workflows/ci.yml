@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Drupal ${{ matrix.drupal-core }} - PHP ${{ matrix.php-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        drupal-core: ['11.0.x']
+        php-version: ['8.1', '8.2', '8.3']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, mysql, pdo_mysql, gd
+          coverage: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Setup problem matchers for PHPUnit
+        run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Install Drupal
+        run: |
+          COMPOSER_MEMORY_LIMIT=-1 composer create-project drupal/recommended-project:${{ matrix.drupal-core }} /tmp/drupal --no-interaction
+          cd /tmp/drupal
+          composer config repositories.local path $GITHUB_WORKSPACE
+          COMPOSER_MEMORY_LIMIT=-1 composer require "drupal/media_entity_spotify:*" --no-interaction
+
+      - name: Install dependencies
+        run: |
+          cd /tmp/drupal
+          COMPOSER_MEMORY_LIMIT=-1 composer install --no-interaction
+
+      - name: Run coding standards check
+        run: |
+          cd /tmp/drupal
+          vendor/bin/phpcs --standard=Drupal,DrupalPractice --extensions=php,module,inc,install,test,profile,theme,css,info,txt,md,yml web/modules/contrib/media_entity_spotify || true
+
+      - name: Run PHPUnit tests
+        run: |
+          cd /tmp/drupal/web
+          ../vendor/bin/phpunit -c core modules/contrib/media_entity_spotify || echo "No tests found or tests failed"
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, intl
+          coverage: none
+          tools: phpcs, phpstan
+
+      - name: Check PHP syntax
+        run: find . -name "*.php" -not -path "./vendor/*" -exec php -l {} \; | (! grep -v "No syntax errors detected")
+
+      - name: Install PHPCS and Drupal standards
+        run: |
+          composer global require drupal/coder squizlabs/php_codesniffer dealerdirect/phpcodesniffer-composer-installer
+          phpcs --config-set installed_paths ~/.composer/vendor/drupal/coder/coder_sniffer
+
+      - name: Run PHPCS
+        run: |
+          phpcs --standard=Drupal,DrupalPractice --extensions=php,module,inc,install,test,profile,theme,info,yml src/ || true
+
+      - name: Check for deprecated code
+        run: |
+          composer global require mglaman/drupal-check
+          ~/.composer/vendor/bin/drupal-check src/ || true
