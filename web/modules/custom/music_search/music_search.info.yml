@@ -1,0 +1,8 @@
+name: Music Search
+description: Provide a simple search service for songs, artists, albums, etc.
+type: module
+core_version_requirement: ^11
+package: Custom
+dependencies:
+  - drupal:node
+  - drupal:field

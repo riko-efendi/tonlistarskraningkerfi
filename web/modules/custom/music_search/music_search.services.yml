@@ -1,0 +1,11 @@
+services:
+  music_search.music_search:
+    class: Drupal\music_search\MusicSearchService
+    arguments:
+      - "@config.factory"
+      - '@http_client'
+      - '@logger.factory'
+      - '@entity_type.manager'
+    calls:
+      - [setSpotifyService, ['@?spotify_lookup.spotify_lookup']]
+      - [setDiscogsService, ['@?discogs_lookup.discogs_lookup']]

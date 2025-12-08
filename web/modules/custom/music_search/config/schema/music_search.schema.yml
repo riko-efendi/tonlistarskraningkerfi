@@ -1,0 +1,16 @@
+music_search.settings:
+  type: config_object
+  label: 'Music Search Settings'
+  mapping:
+    spotify_client_id:
+      type: string
+      label: 'Spotify Client ID'
+    spotify_client_secret:
+      type: string
+      label: 'Spotify Client Secret'
+    discogs_client_id:
+      type: string
+      label: 'Discogs Client ID'
+    discogs_client_secret:
+      type: string
+      label: 'Discogs Client Secret'

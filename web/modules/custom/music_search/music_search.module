@@ -1,0 +1,21 @@
+<?php
+
+/**
+* @file
+* Main module file for Music Search
+*
+*/
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function music_search_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.music_search':
+      $output = '<h3>' .t('About') . '</h3>';
+      $output .= '<p>' .t('Search for music from Spotify & Discogs and import to the site.') . '</p>';
+      return $output;
+  }
+}
