@@ -121,7 +121,7 @@ Class SpotifyLookupService {
          $spotify_type = $type === 'song' ? 'track' : $type;
 
          try {
-             $response = $this->httpClient->get(self::API_BASE . $spotify_type . '/search', [
+             $response = $this->httpClient->get(self::API_BASE . '/search', [
                 'query' => [
                     'q' => $query,
                     'type' => $spotify_type,
@@ -132,7 +132,13 @@ Class SpotifyLookupService {
                  ],
              ]);
 
-             $data = json_decode($response->getBody(), TRUE);
+           $this->loggerFactory->get('spotify_lookup')->debug(
+             'Spotify search raw response: @body',
+             ['@body' => (string) $response->getBody()]
+           );
+
+
+           $data = json_decode($response->getBody(), TRUE);
 
              return $this->formatResults($data, $type);
          }

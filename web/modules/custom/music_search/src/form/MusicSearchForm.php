@@ -88,12 +88,12 @@ class MusicSearchForm extends FormBase {
       '#attributes' => ['id' => 'search-results'],
     ];
 
-    if($form_state->has('results')) {
-      $results = $form_state->get('results');
+    if ($results = $form_state->get('results')) {
       $form['results']['content'] = [
-          '#markup' => $this->renderResults($results),
+        '#markup' => $this->renderResults($results),
       ];
     }
+
 
     return $form;
   }
@@ -101,9 +101,10 @@ class MusicSearchForm extends FormBase {
   /**
    * AJAX Callback for search
    */
-  public function AjaxSearchCallback($form, FormStateInterface $form_state) {
+  public function ajaxSearchCallback(array &$form, FormStateInterface $form_state) {
     return $form['results'];
   }
+
 
   /**
    * {@inheritDoc}
@@ -113,9 +114,12 @@ class MusicSearchForm extends FormBase {
     $type = $form_state->getValue('type');
 
     $results = $this->musicSearch->searchAll($query, $type);
-    $form_state->setValue('results', $results);
+
+    // Use set(), not setValue().
+    $form_state->set('results', $results);
     $form_state->setRebuild(TRUE);
   }
+
 
   /**
    * Render search results
@@ -155,8 +159,6 @@ class MusicSearchForm extends FormBase {
       $output .= '</div>';
     }
     $output .= '</div>';
-
-    dump($output);
 
     return $output;
   }

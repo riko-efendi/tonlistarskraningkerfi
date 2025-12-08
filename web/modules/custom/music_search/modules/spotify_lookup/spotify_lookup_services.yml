@@ -1,7 +1,0 @@
-services:
-    spotify_lookup.spotify_lookup:
-        class: Drupal\spotify_lookup\Spotify\LookupService
-        arguments:
-            - '@config.factory'
-            - '@http_client'
-            - '@logger.factory'
