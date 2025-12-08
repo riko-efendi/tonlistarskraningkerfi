@@ -3,6 +3,7 @@
 namespace Drupal\music_search\Form;
 
 use Drupal\Core\Config\Config;
+use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 

@@ -310,5 +310,5 @@ Class SpotifyLookupService {
 
         return $formatted;
     }
-    
+
 }

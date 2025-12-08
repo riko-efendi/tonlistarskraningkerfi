@@ -90,7 +90,9 @@ class MusicSearchForm extends FormBase {
 
     if($form_state->has('results')) {
       $results = $form_state->get('results');
-      $form['results']['#markup'] = $this->renderResults($results);
+      $form['results']['content'] = [
+          '#markup' => $this->renderResults($results),
+      ];
     }
 
     return $form;
@@ -153,6 +155,8 @@ class MusicSearchForm extends FormBase {
       $output .= '</div>';
     }
     $output .= '</div>';
+
+    dump($output);
 
     return $output;
   }

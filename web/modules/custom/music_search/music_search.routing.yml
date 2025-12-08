@@ -21,3 +21,12 @@ music_search.search_api:
   requirements:
     _permission: 'access content'
   methods: [GET]
+
+music_search.details_api:
+    path: '/music-search/api/details/{provider}/{id}'
+    defaults:
+        _controller: '\Drupal\music_search\Controller\MusicSearchController::getDetailsApi'
+    requirements:
+        _permission: 'access content'
+        provider: 'spotify|discogs'
+    methods: [GET]

@@ -228,7 +228,7 @@ public function setDiscogsService($service)
         'vid' => 'music_genre',
       ]);
 
-      if(empty($terms)) {
+      if (empty($terms)) {
         $term = $term_storage->create([
           'vid' => 'music_genre',
           'name' => $name,
