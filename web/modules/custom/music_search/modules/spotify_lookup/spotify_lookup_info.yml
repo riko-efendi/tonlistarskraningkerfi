@@ -1,0 +1,7 @@
+name: Spotify Lookup
+type: module
+description: 'Lookup service for Spotify API'
+core_version_requirement: ^11
+package: Music Search
+dependencies:
+    - music_search:music_search
