@@ -1,0 +1,7 @@
+name: Discogs Lookup
+type: module
+description: 'Discogs API lookup service for Music Search'
+core_version_requirement: ^11
+package: Music Search
+dependencies:
+  - music_search:music_search

@@ -30,3 +30,13 @@ music_search.details_api:
         _permission: 'access content'
         provider: 'spotify|discogs'
     methods: [GET]
+
+music_search.selection:
+  path: '/admin/content/music-search/select/{provider}/{id}/{type}'
+  defaults:
+    _form: '\Drupal\music_search\Form\MusicSearchSelectionForm'
+    _title: 'Select Music Data'
+  requirements:
+    _permission: 'access content'
+    provider: 'spotify|discogs'
+    type: 'artist|album|song'
