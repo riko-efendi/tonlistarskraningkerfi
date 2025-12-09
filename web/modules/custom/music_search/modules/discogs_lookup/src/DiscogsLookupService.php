@@ -15,7 +15,7 @@ class DiscogsLookupService
   /**
    * Discogs API base URL
    */
-  const string API_BASE = 'https://api.discogs.com/';
+  const API_BASE = 'https://api.discogs.com/';
 
   /**
    * The config factory
@@ -55,11 +55,20 @@ class DiscogsLookupService
       return [];
     }
 
-    // Map type to Discogs type
-    $discogs_type = $type === 'song' ? 'release' : $type;
+    switch ($type) {
+      case 'artist':
+        $discogs_type = 'artist';
+        break;
+      case 'album':
+      case 'song':
+      default:
+        // Discogs doesn’t have 'album' or 'song' types, use 'release'.
+        $discogs_type = 'release';
+        break;
+    }
 
     try {
-      $response = $this->httpClient->get(self::API_BASE . '/database/search', [
+      $response = $this->httpClient->get(self::API_BASE . 'database/search', [
         'query' => [
           'q' => $query,
           'type' => $discogs_type,
@@ -89,21 +98,21 @@ class DiscogsLookupService
    */
   public function getDetails($id, $type) {
     $config = $this->configFactory->get('music_search.settings');
-    $api_key = $config->get('discogs_api_key');
-    $api_secret = $config->get('discogs_api_secret');
+    $api_key = $config->get('discogs_client_id');
+    $api_secret = $config->get('discogs_client_secret');
 
     if (empty($api_key) || empty($api_secret)) {
       return NULL;
     }
 
     try {
-      $endpoint = self::API_BASE . '/';
+      $endpoint = self::API_BASE;
 
       if ($type === 'artist') {
-        $endpoint .= 'artists/' . $id;
+        $endpoint = self::API_BASE . 'artists/' . $id;
       }
       elseif ($type === 'album' || $type === 'song') {
-        $endpoint .= 'releases/' . $id;
+        $endpoint = self::API_BASE . 'releases/' . $id;
       }
 
       $response = $this->httpClient->get($endpoint, [

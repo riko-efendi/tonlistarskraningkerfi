@@ -62,6 +62,12 @@ class MusicComparisonForm extends FormBase
   public function buildForm(array $form, FormStateInterface $form_state, $provider = NULL, $id = NULL, $type = NULL)
   {
 
+    \Drupal::logger('music_search')->notice(
+      'Compare params: provider=@p id=@id type=@t',
+      ['@p' => $provider, '@id' => $id, '@t' => $type]
+    );
+
+
     if (!$provider || !$id || !$type) {
       $this->messenger()->addError($this->t('Invalid parameters.'));
       return $form;

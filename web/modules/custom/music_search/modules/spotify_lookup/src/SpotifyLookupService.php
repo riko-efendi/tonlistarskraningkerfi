@@ -118,7 +118,7 @@ Class SpotifyLookupService {
              return [];
          }
 
-         $spotify_type = $type === 'song' ? 'tracks' : $type;
+         $spotify_type = $type === 'song' ? 'track' : $type;
 
          try {
              $response = $this->httpClient->get(self::API_BASE . '/search', [
