@@ -15,7 +15,7 @@ class DiscogsLookupService
   /**
    * Discogs API base URL
    */
-  const API_BASE = 'https://api.discogs.org/';
+  const string API_BASE = 'https://api.discogs.com/';
 
   /**
    * The config factory
@@ -44,10 +44,11 @@ class DiscogsLookupService
   /**
    * Search Discogs
    */
-  public function search($query, $type) {
-    $config = $this->configFactory->get('discogs_lookup.settings');
-    $api_key = $config->get('discogs_api_key');
-    $api_secret = $config->get('discogs_api_secret');
+  public function search($query, $type): array
+  {
+    $config = $this->configFactory->get('music_search.settings');
+    $api_key = $config->get('discogs_client_id');
+    $api_secret = $config->get('discogs_client_secret');
 
     if (empty($api_key) || empty($api_secret)) {
       $this->logger->error('Discogs credentials not configured');
@@ -62,6 +63,7 @@ class DiscogsLookupService
         'query' => [
           'q' => $query,
           'type' => $discogs_type,
+          'per_page' => 3,
           'key' => $api_key,
           'secret' => $api_secret,
         ],
@@ -71,6 +73,8 @@ class DiscogsLookupService
       ]);
 
       $data = json_decode($response->getBody(), TRUE);
+
+      $this->logger->info("Discogs get info", $data);
 
       return $this->formatResults($data, $type);
     }

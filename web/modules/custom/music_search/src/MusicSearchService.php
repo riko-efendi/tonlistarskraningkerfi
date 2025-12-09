@@ -82,10 +82,10 @@ class MusicSearchService
   /**
    * Sets the Discogs service
    */
-public function setDiscogsService($service)
-{
-  $this->discogsService = $service;
-}
+  public function setDiscogsService($service)
+  {
+    $this->discogsService = $service;
+  }
 
   /**
    * Search across all available services

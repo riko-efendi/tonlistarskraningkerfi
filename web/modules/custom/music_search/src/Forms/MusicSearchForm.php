@@ -90,10 +90,9 @@ class MusicSearchForm extends FormBase {
 
     if ($results = $form_state->get('results')) {
       $form['results']['content'] = [
-        '#markup' => $this->renderResults($results),
+        '#markup' => $this->renderResults($results, $form_state),
       ];
     }
-
 
     return $form;
   }
@@ -124,40 +123,75 @@ class MusicSearchForm extends FormBase {
   /**
    * Render search results
    */
-  protected function renderResults(array $results) : string {
-    $output = '<div class="music-search-results">';
+  protected function renderResults($all_results, FormStateInterface $form_state): string
+  {
+    if (empty($all_results)) {
+      return '<p>' . $this->t('No results found.') . '</p>';
+    }
 
-    foreach ($results as $provider => $items) {
-      if(empty($items)) {
+    $type = $form_state->getValue('type');
+
+    $output = '<div class="music-search-results">';
+    $output .= '<p>' . $this->t('Click "Select" to choose which data to use from each provider.') . '</p>';
+
+    foreach ($all_results as $provider => $results) {
+      if (empty($results)) {
         continue;
       }
 
-      $output .= '<h3>' . ucfirst($provider) . '</h3>';
-      $output .= '<div class="results-' . $provider . '">';
+      $output .= '<h3>' . $this->t('Results from @provider', ['@provider' => ucfirst($provider)]) . '</h3>';
 
-      foreach ($items as $item) {
-        $output .= '<div class="result-item">';
+      foreach ($results as $index => $item) {
+        $item_id = $item['id'];
+        $output .= '<div class="result-item" data-provider="' . $provider . '" data-id="' . $item_id . '">';
 
         if (!empty($item['image'])) {
-          $output .= '<img src="' . $item['image'] . '" alt="' . $item['name'] . '" width="100">';
+          $output .= '<img src="' . $item['image'] . '" alt="' . htmlspecialchars($item['name']) . '" style="width: 100px; height: 100px; object-fit: cover; float: left; margin-right: 15px;">';
         }
 
-        $output .= '<h4>' . $item['name'] . '</h4>';
+        $output .= '<h4>' . htmlspecialchars($item['name']) . '</h4>';
 
         if (!empty($item['artist'])) {
-          $output .= '<p>Artist: ' . $item['artist'] . '</p>';
+          $output .= '<p><strong>Artist:</strong> ' . htmlspecialchars($item['artist']) . '</p>';
+        }
+
+        if (!empty($item['album'])) {
+          $output .= '<p><strong>Album:</strong> ' . htmlspecialchars($item['album']) . '</p>';
         }
 
         if (!empty($item['year'])) {
-          $output .= '<p>Year: ' . $item['year'] . '</p>';
+          $output .= '<p><strong>Year:</strong> ' . htmlspecialchars($item['year']) . '</p>';
         }
 
-        $output .= '<button class="button" data-provider="' . $provider . '" data-id="' . $item['id'] . '">Select</button>';
+        if (!empty($item['length'])) {
+          $output .= '<p><strong>Length:</strong> ' . htmlspecialchars($item['length']) . '</p>';
+        }
+
+        if (!empty($item['genres'])) {
+          $output .= '<p><strong>Genres:</strong> ' . htmlspecialchars(implode(', ', $item['genres'])) . '</p>';
+        }
+
+        $output .= '<p><strong>' . ucfirst($provider) . ' ID:</strong> ' . htmlspecialchars($item['id']) . '</p>';
+
+        // Add Select button
+        /*$output .= '<button type="button" class="button button--primary select-result"
+        data-provider="' . $provider . '"
+        data-id="' . $item_id . '"
+        data-name="' . htmlspecialchars($item['name']) . '"
+        onclick="selectResult(\'' . $provider . '\', \'' . $item_id . '\', \'' . $type. '\')">';
+        $output .= $this->t('Select This Result');
+        $output .= '</button>';*/
+
+        $select_url = '/admin/content/music-search/compare/' . $provider . '/' . $item_id . '/' . $type;
+        $output .= '<a href="' . $select_url . '" class="button button--primary" style="margin-top: 10px; display: inline-block;">';
+        $output .= $this->t('Select for Comparison');
+        $output .= '</a>';
+
+        $output .= '<div style="clear: both;"></div>';
         $output .= '</div>';
       }
-
-      $output .= '</div>';
     }
+
     $output .= '</div>';
 
     return $output;

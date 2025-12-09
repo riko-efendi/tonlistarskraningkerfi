@@ -118,14 +118,14 @@ Class SpotifyLookupService {
              return [];
          }
 
-         $spotify_type = $type === 'song' ? 'track' : $type;
+         $spotify_type = $type === 'song' ? 'tracks' : $type;
 
          try {
              $response = $this->httpClient->get(self::API_BASE . '/search', [
                 'query' => [
                     'q' => $query,
                     'type' => $spotify_type,
-                    'limit' => 10,
+                    'limit' => 3,
                 ],
                  'headers' => [
                      'Authorization' => 'Bearer ' . $token,
@@ -166,7 +166,22 @@ Class SpotifyLookupService {
             return NULL;
         }
 
-        $spotify_type = $type === 'song' ? 'track' : $type;
+        $spotify_type = '';
+
+        switch ($type) {
+          case 'song':
+              $spotify_type = 'tracks';
+              break;
+
+          case 'album':
+              $spotify_type = 'albums';
+              break;
+
+          case 'artist':
+            $spotify_type = 'artists';
+            break;
+        }
+
         $endpoint = self::API_BASE . $spotify_type . '/' . $id;
 
         try {
@@ -189,111 +204,173 @@ Class SpotifyLookupService {
     /**
      * Format search results.
     */
-    protected function formatResults($data, $type) {
-        $results = [];
+  protected function formatResults($data, $type) {
+    $results = [];
 
-        if ($type === 'artist' && isset($data['artists']['items'])) {
-            foreach ($data['artists']['items'] as $item) {
-                $results[] = [
-                    'id' => $item['id'],
-                    'name' => $item['name'],
-                    'image' => $item['images'][0]['url'] ?? NULL,
-                    'genres' => $item['genres'] ?? NULL,
-                    'provider' => 'spotify',
-                ];
-            }
-        }
-        elseif ($type === 'album' && isset($data['albums']['items'])) {
-            foreach ($data['albums']['items'] as $item) {
-                $results[] = [
-                    'id' => $item['id'],
-                    'name' => $item['name'],
-                    'artist' => $item['artist'],
-                    'artist_id' => $item['artist'][0]['url'] ?? NULL,
-                    'image' => $item['images'][0]['url'] ?? NULL,
-                    'release_date' => $item['release_date'] ?? NULL,
-                    'year' => substr($item['release_date'] ?? '', 0, 4),
-                    'total_tracks' => $item['total_tracks'] ?? 0,
-                    'provider' => 'spotify',
-                ];
-            }
-        }
-        elseif ($type === 'song' && isset($data['tracks']['items'])) {
-            foreach ($data['tracks']['items'] as $item) {
-                $duration_ms = $item['duration'] ?? 0;
-                $minutes = floor($duration_ms / 60000);
-                $seconds = floor(($duration_ms % 60000) / 1000);
-
-                $results[] = [
-                    'id' => $item['id'],
-                    'name' => $item['name'],
-                    'artist' => $item['artists'][0]['name'] ?? 'Unknown',
-                    'artist_id' => $item['artists'][0]['id'] ?? NULL,
-                    'album' => $item['albums']['name'] ?? NULL,
-                    'album_id' => $item['albums']['id'] ?? NULL,
-                    'length' => sprintf('%d:%02d', $minutes, $seconds),
-                    'duration_ms' => $duration_ms,
-                    'provider' => 'spotify',
-                ];
-            }
-        }
-
-        return $results;
+    // Artist search results
+    if ($type === 'artist' && isset($data['artists']['items'])) {
+      foreach ($data['artists']['items'] as $item) {
+        $results[] = [
+          'id' => $item['id'],
+          'name' => $item['name'],
+          'image' => $item['images'][0]['url'] ?? NULL,
+          'genres' => $item['genres'] ?? [],
+          'popularity' => $item['popularity'] ?? 0,
+          'provider' => 'spotify',
+        ];
+      }
     }
+
+    // Album search results
+    elseif ($type === 'album' && isset($data['albums']['items'])) {
+      foreach ($data['albums']['items'] as $item) {
+        // Extract artist information
+        $artist_name = 'Unknown';
+        $artist_id = NULL;
+
+        if (!empty($item['artists']) && is_array($item['artists'])) {
+          $artist_name = $item['artists'][0]['name'] ?? 'Unknown';
+          $artist_id = $item['artists'][0]['id'] ?? NULL;
+        }
+
+        $results[] = [
+          'id' => $item['id'],
+          'name' => $item['name'],
+          'artist' => $artist_name,
+          'artist_id' => $artist_id,
+          'image' => $item['images'][0]['url'] ?? NULL,
+          'release_date' => $item['release_date'] ?? NULL,
+          'year' => substr($item['release_date'] ?? '', 0, 4),
+          'total_tracks' => $item['total_tracks'] ?? 0,
+          'provider' => 'spotify',
+        ];
+      }
+    }
+
+    // Song/Track search results
+    elseif ($type === 'song' && isset($data['tracks']['items'])) {
+      foreach ($data['tracks']['items'] as $item) {
+        $duration_ms = $item['duration_ms'] ?? 0;
+        $minutes = floor($duration_ms / 60000);
+        $seconds = floor(($duration_ms % 60000) / 1000);
+
+        // Extract artist and album information
+        $artist_name = 'Unknown';
+        $artist_id = NULL;
+        $album_name = NULL;
+        $album_id = NULL;
+
+        if (!empty($item['artists']) && is_array($item['artists'])) {
+          $artist_name = $item['artists'][0]['name'] ?? 'Unknown';
+          $artist_id = $item['artists'][0]['id'] ?? NULL;
+        }
+
+        if (!empty($item['album'])) {
+          $album_name = $item['album']['name'] ?? NULL;
+          $album_id = $item['album']['id'] ?? NULL;
+        }
+
+        $results[] = [
+          'id' => $item['id'],
+          'name' => $item['name'],
+          'artist' => $artist_name,
+          'artist_id' => $artist_id,
+          'album' => $album_name,
+          'album_id' => $album_id,
+          'length' => sprintf('%d:%02d', $minutes, $seconds),
+          'duration_ms' => $duration_ms,
+          'provider' => 'spotify',
+        ];
+      }
+    }
+
+    return $results;
+  }
 
     /**
      *   Format detailed information
      */
-    protected function formatDetails($data, $type) {
-        if ($type === 'artist') {
-            return [
-                'id' => $data['id'],
-                'name' => $data['name'],
-                'image' => $data['images'][0]['url'] ?? NULL,
-                'genres' => $data['genres'] ?? [],
-                'spotify_url' => $data['external_urls']['spotify'] ?? NULL,
-                'provider' => 'spotify',
-            ];
-        }
-        elseif ($type === 'album') {
-            return [
-                'id' => $data['id'],
-                'name' => $data['name'],
-                'artist' => $data['artists'][0]['name'] ?? 'Unknown',
-                'artist_id' => $data['artists'][0]['id'] ?? NULL,
-                'image' => $data['images'][0]['url'] ?? NULL,
-                'release_date' => $data['release_date'] ?? NULL,
-                'year' => substr($data['release_date'] ?? '', 0, 4),
-                'total_tracks' => $data['total_tracks'] ?? 0,
-                'genres' => $data['genres'] ?? [],
-                'label' => $data['label'] ?? NULL,
-                'spotify_url' => $data['external_urls']['spotify'] ?? NULL,
-                'tracks' => $this->formatTracks($data['tracks']['items'] ?? []),
-                'provider' => 'spotify',
-            ];
-        }
-        elseif ($type === 'song') {
-            $duration_ms = $data['duration_ms'] ?? 0;
-            $minutes = floor($duration_ms / 60000);
-            $seconds = floor(($duration_ms % 60000) / 1000);
-
-            return [
-                'id' => $data['id'],
-                'name' => $data['name'],
-                'artist' => $data['artists'][0]['name'] ?? 'Unknown',
-                'artist_id' => $data['artists'][0]['id'] ?? NULL,
-                'album' => $data['albums']['name'] ?? NULL,
-                'album_id' => $data['albums']['id'] ?? NULL,
-                'length' => sprintf('%d:%02d', $minutes, $seconds),
-                'duration_ms' => $duration_ms,
-                'track_number' => $data['track_number'] ?? NULL,
-                'spotify_url' => $data['external_urls']['spotify'] ?? NULL,
-                'provider' => 'spotify',
-            ];
-        }
-
-        return $data;
+  protected function formatDetails($data, $type) {
+    if ($type === 'artist') {
+      return [
+        'id' => $data['id'],
+        'name' => $data['name'],
+        'image' => $data['images'][0]['url'] ?? NULL,
+        'genres' => $data['genres'] ?? [],
+        'popularity' => $data['popularity'] ?? 0,
+        'followers' => $data['followers']['total'] ?? 0,
+        'spotify_url' => $data['external_urls']['spotify'] ?? NULL,
+        'provider' => 'spotify',
+      ];
     }
+
+    elseif ($type === 'album') {
+      // Extract artist information
+      $artist_name = 'Unknown';
+      $artist_id = NULL;
+
+      if (!empty($data['artists']) && is_array($data['artists'])) {
+        $artist_name = $data['artists'][0]['name'] ?? 'Unknown';
+        $artist_id = $data['artists'][0]['id'] ?? NULL;
+      }
+
+      return [
+        'id' => $data['id'],
+        'name' => $data['name'],
+        'artist' => $artist_name,
+        'artist_id' => $artist_id,
+        'image' => $data['images'][0]['url'] ?? NULL,
+        'release_date' => $data['release_date'] ?? NULL,
+        'year' => substr($data['release_date'] ?? '', 0, 4),
+        'total_tracks' => $data['total_tracks'] ?? 0,
+        'genres' => $data['genres'] ?? [],
+        'label' => $data['label'] ?? NULL,
+        'spotify_url' => $data['external_urls']['spotify'] ?? NULL,
+        'tracks' => $this->formatTracks($data['tracks']['items'] ?? []),
+        'provider' => 'spotify',
+      ];
+    }
+
+    elseif ($type === 'song') {
+      $duration_ms = $data['duration_ms'] ?? 0;
+      $minutes = floor($duration_ms / 60000);
+      $seconds = floor(($duration_ms % 60000) / 1000);
+
+      // Extract artist and album information
+      $artist_name = 'Unknown';
+      $artist_id = NULL;
+      $album_name = NULL;
+      $album_id = NULL;
+
+      if (!empty($data['artists']) && is_array($data['artists'])) {
+        $artist_name = $data['artists'][0]['name'] ?? 'Unknown';
+        $artist_id = $data['artists'][0]['id'] ?? NULL;
+      }
+
+      if (!empty($data['album'])) {
+        $album_name = $data['album']['name'] ?? NULL;
+        $album_id = $data['album']['id'] ?? NULL;
+      }
+
+      return [
+        'id' => $data['id'],
+        'name' => $data['name'],
+        'artist' => $artist_name,
+        'artist_id' => $artist_id,
+        'album' => $album_name,
+        'album_id' => $album_id,
+        'length' => sprintf('%d:%02d', $minutes, $seconds),
+        'duration_ms' => $duration_ms,
+        'track_number' => $data['track_number'] ?? NULL,
+        'disc_number' => $data['disc_number'] ?? 1,
+        'spotify_url' => $data['external_urls']['spotify'] ?? NULL,
+        'preview_url' => $data['preview_url'] ?? NULL,
+        'provider' => 'spotify',
+      ];
+    }
+
+    return $data;
+  }
 
     /**
      * Format track list

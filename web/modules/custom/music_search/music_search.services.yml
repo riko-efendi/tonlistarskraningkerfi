@@ -8,5 +8,4 @@ services:
       - '@entity_type.manager'
     calls:
       - [ setSpotifyService, ['@spotify_lookup.spotify_lookup'] ]
-      # Only if you have Discogs:
-      #- [ setDiscogsService, ['@discogs_lookup.discogs_lookup'] ]
+      - [ setDiscogsService, ['@discogs_lookup.discogs_lookup'] ]

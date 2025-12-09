@@ -40,3 +40,14 @@ music_search.selection:
     _permission: 'access content'
     provider: 'spotify|discogs'
     type: 'artist|album|song'
+
+music_search.compare:
+  path: '/admin/content/music-search/compare/{provider}/{id}/{type}'
+  defaults:
+    _form: '\Drupal\music_search\Form\MusicComparisonForm'
+    _title: 'Compare and Select'
+  requirements:
+    _permission: 'access content'
+    provider: 'spotify|discogs'
+    type: 'artist|album|song'
+
