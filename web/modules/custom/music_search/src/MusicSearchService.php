@@ -180,14 +180,17 @@ class MusicSearchService
       if ($type === 'artist') {
         // Genres
         if (!empty($data['genres']) && is_array($data['genres'])) {
-          $values['field_music_genre'] = $this->getOrCreateTerms($data['genres']);
+          $values['field_music_genre_artist'] = $this->getOrCreateTerms($data['genres']);
         }
 
+        $this->loggerFactory->get('music_search')->info('createMediaFromUrl called with Data: @data', [
+          '@data' => $data
+        ]);
         // Image
-        if (!empty($data['image'])) {
-          $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Artist Image');
+        if (!empty($data['images'])) {
+          $media_id = $this->createMediaFromUrl($data['images'], $data['name'] ?? 'Artist Image');
           if ($media_id) {
-            $values['field_images'] = $media_id;
+            $values['field_artist_image'] = $media_id;
           }
         }
       }
@@ -201,7 +204,7 @@ class MusicSearchService
 
         // Year
         if (!empty($data['year'])) {
-          $values['field_year_release'] = $data['year'];
+          $values['field_release_year'] = $data['year'];
         }
 
         // Genres
@@ -213,14 +216,14 @@ class MusicSearchService
         if (!empty($data['image'])) {
           $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Album Cover');
           if ($media_id) {
-            $values['field_cover_image'] = $media_id;
+            $values['field_album_cover'] = $media_id;
           }
         }
       }
       elseif ($type === 'song') {
         // Artist
         if (!empty($data['artist'])) {
-          $values['field_artist'] = $data['artist'];
+          $values['field_artist_song'] = $data['artist'];
         }
 
         // Album
@@ -230,7 +233,7 @@ class MusicSearchService
 
         // Length
         if (!empty($data['length'])) {
-          $values['field_length'] = $data['length'];
+          $values['field_song_duration'] = $data['length'];
         }
       }
 
@@ -290,6 +293,9 @@ class MusicSearchService
    * Helper to create media from URL.
    */
   protected function createMediaFromUrl($url, $name = 'Image') {
+    $this->loggerFactory->get('music_search')->info('createMediaFromUrl called with URL: @url', [
+      '@url' => $url
+    ]);
     try {
       // Download the image
       $image_data = file_get_contents($url);
