@@ -251,6 +251,8 @@ class MusicComparisonForm extends FormBase
       $fields = [
         ['field' => 'name', 'label' => 'Artist Name', 'required' => TRUE],
         ['field' => 'image', 'label' => 'Image'],
+        ['field' => 'profile', 'label' => 'Description'],
+        ['field' => 'discogs_url', 'label' => 'Website'],
         ['field' => 'genres', 'label' => 'Genres'],
       ];
     }
@@ -347,8 +349,11 @@ class MusicComparisonForm extends FormBase
     }
     $all_fields = array_unique($all_fields);
 
-    // Display each field
-    $display_fields = ['name', 'artist', 'album', 'year', 'genres', 'length', 'image'];
+    $display_fields = [
+      'name', 'artist', 'album', 'year',
+      'genres', 'length', 'image',
+      'profile', 'discogs_url'
+    ];
 
     foreach ($display_fields as $field_name) {
       if (!in_array($field_name, $all_fields)) {
