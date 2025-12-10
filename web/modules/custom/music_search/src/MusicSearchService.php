@@ -2,8 +2,10 @@
 
 namespace Drupal\music_search;
 
+use Drupal\Component\Serialization\Json;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use GuzzleHttp\ClientInterface;
 
@@ -109,7 +111,10 @@ class MusicSearchService
       try {
         $results['spotify'] = $this->spotifyService->search($query, $type);
       } catch (\Exception $e) {
-        $this->loggerFactory->get('music_search')->error('Spotify search error: @message', [$e->getMessage()]);
+        $this->loggerFactory->get('music_search')->error(
+          'Spotify search error: @message',
+          ['@message' => $e->getMessage()]
+        );
       }
     }
 
@@ -117,9 +122,13 @@ class MusicSearchService
       try {
         $results['discogs'] = $this->discogsService->search($query, $type);
       } catch (\Exception $e) {
-        $this->loggerFactory->get('music_search')->error('Discogs search error: @message', [$e->getMessage()]);
+        $this->loggerFactory->get('music_search')->error(
+          'Discogs search error: @message',
+          ['@message' => $e->getMessage()]
+        );
       }
     }
+
 
     return $results;
   }
@@ -158,7 +167,13 @@ class MusicSearchService
    * @return \Drupal\Core\Entity\EntityInterface|Null
    * The created node or NULL
    */
-  public function createContent(array $data, $type) {
+  public function createContent(array $data, string $type) {
+
+    $this->loggerFactory->get('music_search')->debug(
+      'Raw data array: @data',
+      ['@data' => Json::encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)]
+    );
+
     try {
       $node_storage = $this->entityTypeManager->getStorage('node');
 
@@ -183,14 +198,12 @@ class MusicSearchService
           $values['field_music_genre_artist'] = $this->getOrCreateTerms($data['genres']);
         }
 
-        $this->loggerFactory->get('music_search')->info('createMediaFromUrl called with Data: @data', [
-          '@data' => $data
-        ]);
-        // Image
-        if (!empty($data['images'])) {
-          $media_id = $this->createMediaFromUrl($data['images'], $data['name'] ?? 'Artist Image');
+        if (!empty($data['image'])) {
+          $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Artist Image');
           if ($media_id) {
-            $values['field_artist_image'] = $media_id;
+            $values['field_artist_image'] = [
+              'target_id' => $media_id,
+            ];
           }
         }
       }
@@ -293,32 +306,33 @@ class MusicSearchService
    * Helper to create media from URL.
    */
   protected function createMediaFromUrl($url, $name = 'Image') {
-    $this->loggerFactory->get('music_search')->info('createMediaFromUrl called with URL: @url', [
-      '@url' => $url
-    ]);
     try {
-      // Download the image
       $image_data = file_get_contents($url);
-
       if (!$image_data) {
         return NULL;
       }
 
-      // Create file
+      $file_system = \Drupal::service('file_system');
+      $directory = 'public://music_images';
+
+      $file_system->prepareDirectory(
+        $directory,
+        FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS
+      );
+
       $file_repository = \Drupal::service('file.repository');
       $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $name) . '.jpg';
 
       $file = $file_repository->writeData(
         $image_data,
-        'public://music_images/' . $filename,
-        \Drupal\Core\File\FileSystemInterface::EXISTS_RENAME
+        $directory . '/' . $filename,
+        FileSystemInterface::EXISTS_RENAME
       );
 
       if (!$file) {
         return NULL;
       }
 
-      // Create media entity
       $media_storage = $this->entityTypeManager->getStorage('media');
       $media = $media_storage->create([
         'bundle' => 'image',
