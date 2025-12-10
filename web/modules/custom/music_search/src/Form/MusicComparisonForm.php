@@ -112,17 +112,22 @@ class MusicComparisonForm extends FormBase
       ];
     }
 
-    // If we have multiple selections, show comparison
     if (count($stored_selections) >= 2) {
       $form['comparison'] = [
         '#type' => 'fieldset',
-        '#title' => $this->t('Compare and Select Data'),
+        '#title' => $this->t('Compare Data from Multiple Sources'),
+        '#description' => $this->t('Review the data from each provider, then select which fields to use.'),
       ];
 
+      // Add visual comparison table
       $form['comparison']['table'] = [
-        '#markup' => $this->renderComparisonTable($stored_selections, $type),
+        '#markup' => $this->renderComparisonTable($stored_selections),
       ];
+
+      // Add field selection radio buttons
+      $form['comparison']['fields'] = $this->buildComparisonFields($stored_selections, $type);
     }
+
 
     // Hidden field for content type
     $form['content_type'] = [
@@ -158,6 +163,139 @@ class MusicComparisonForm extends FormBase
   }
 
   /**
+   * Build comparison fields with radio buttons for selection.
+   */
+  protected function buildComparisonFields($selections, $type) {
+    $fields = [];
+
+    // Define which fields to compare based on content type
+    $compare_fields = $this->getCompareFields($type);
+
+    foreach ($compare_fields as $field_info) {
+      $field_name = $field_info['field'];
+      $field_label = $field_info['label'];
+      $is_required = $field_info['required'] ?? FALSE;
+
+      $options = [];
+      $default = NULL;
+      $has_values = FALSE;
+
+      // Build options from each provider
+      foreach ($selections as $key => $selection) {
+        $value = $selection['details'][$field_name] ?? NULL;
+
+        if ($value !== NULL && $value !== '' && $value !== '-') {
+          $has_values = TRUE;
+
+          // Format the display value
+          $display_value = $this->formatFieldValue($value, $field_name);
+
+          // Create option: "Spotify: The Beatles"
+          $options[$key . '|' . $field_name] = ucfirst($selection['provider']) . ': ' . $display_value;
+
+          // Set first option as default
+          if ($default === NULL) {
+            $default = $key . '|' . $field_name;
+          }
+        }
+      }
+
+      // Only add field if we have options
+      if (!empty($options) && $has_values) {
+        $fields['field_' . $field_name] = [
+          '#type' => 'radios',
+          '#title' => $this->t('Select @field', ['@field' => $field_label]),
+          '#options' => $options,
+          '#default_value' => $default,
+          '#required' => $is_required,
+          '#description' => $this->t('Choose which source to use for @field.', ['@field' => strtolower($field_label)]),
+        ];
+
+        // Show preview of values side-by-side
+        $preview = '<div style="margin-top: 5px; padding: 10px; background: #f5f5f5; border-radius: 3px;">';
+        $preview .= '<strong>Preview:</strong><br>';
+        foreach ($selections as $key => $selection) {
+          $value = $selection['details'][$field_name] ?? NULL;
+          if ($value !== NULL && $value !== '' && $value !== '-') {
+            $display = $this->formatFieldValue($value, $field_name, TRUE);
+            $preview .= '<span style="display: inline-block; margin-right: 15px;">';
+            $preview .= '<strong>' . ucfirst($selection['provider']) . ':</strong> ' . $display;
+            $preview .= '</span>';
+          }
+        }
+        $preview .= '</div>';
+
+        $fields['field_' . $field_name . '_preview'] = [
+          '#markup' => $preview,
+        ];
+      }
+    }
+
+    // Add note about provider IDs
+    $fields['provider_note'] = [
+      '#markup' => '<div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; margin-top: 20px;">' .
+        '<strong>Note:</strong> All provider IDs will be saved with the content, regardless of which fields you select.' .
+        '</div>',
+    ];
+
+    return $fields;
+  }
+
+  /**
+   * Get fields to compare based on content type.
+   */
+  protected function getCompareFields($type) {
+    $fields = [];
+
+    if ($type === 'artist') {
+      $fields = [
+        ['field' => 'name', 'label' => 'Artist Name', 'required' => TRUE],
+        ['field' => 'image', 'label' => 'Image'],
+        ['field' => 'genres', 'label' => 'Genres'],
+      ];
+    }
+    elseif ($type === 'album') {
+      $fields = [
+        ['field' => 'name', 'label' => 'Album Name', 'required' => TRUE],
+        ['field' => 'artist', 'label' => 'Artist Name'],
+        ['field' => 'year', 'label' => 'Release Year'],
+        ['field' => 'image', 'label' => 'Cover Image'],
+        ['field' => 'genres', 'label' => 'Genres'],
+      ];
+    }
+    elseif ($type === 'song') {
+      $fields = [
+        ['field' => 'name', 'label' => 'Song Title', 'required' => TRUE],
+        ['field' => 'artist', 'label' => 'Artist Name'],
+        ['field' => 'album', 'label' => 'Album Name'],
+        ['field' => 'length', 'label' => 'Length'],
+      ];
+    }
+
+    return $fields;
+  }
+
+  /**
+   * Format field value for display.
+   */
+  protected function formatFieldValue($value, $field_name, $short = FALSE) {
+    if (is_array($value)) {
+      $joined = implode(', ', $value);
+      return $short ? (strlen($joined) > 50 ? substr($joined, 0, 50) . '...' : $joined) : $joined;
+    }
+
+    if ($field_name === 'image') {
+      return '[Image Available]';
+    }
+
+    if (is_string($value)) {
+      return $short ? (strlen($value) > 50 ? substr($value, 0, 50) . '...' : $value) : $value;
+    }
+
+    return (string) $value;
+  }
+
+  /**
    * Render current selections.
    */
   protected function renderSelections($selections)
@@ -183,69 +321,68 @@ class MusicComparisonForm extends FormBase
   /**
    * Render comparison table.
    */
-  protected function renderComparisonTable($selections, $type)
+  protected function renderComparisonTable($selections)
   {
-    $output = '<table class="comparison-table" style="width: 100%; border-collapse: collapse;">';
-    $output .= '<thead><tr style="background: #ddd;">';
-    $output .= '<th style="padding: 10px; border: 1px solid #ccc;">Field</th>';
+    $output = '<div style="overflow-x: auto; margin: 20px 0;">';
+    $output .= '<table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">';
 
-    foreach ($selections as $provider => $selection) {
-      $output .= '<th style="padding: 10px; border: 1px solid #ccc;">' . ucfirst($provider) . '</th>';
+    // Header row with provider names
+    $output .= '<thead><tr style="background: #f0f0f0;">';
+    $output .= '<th style="padding: 12px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Field</th>';
+
+    foreach ($selections as $selection) {
+      $provider = ucfirst($selection['provider']);
+      $output .= '<th style="padding: 12px; border: 1px solid #ddd; text-align: left;">';
+      $output .= '<div style="font-weight: bold; color: #2196f3;">' . $provider . '</div>';
+      $output .= '<div style="font-size: 0.85em; color: #666;">' . htmlspecialchars($selection['details']['name']) . '</div>';
+      $output .= '</th>';
     }
 
-    $output .= '<th style="padding: 10px; border: 1px solid #ccc;">Use This</th>';
     $output .= '</tr></thead><tbody>';
 
-    // Get all unique fields
+    // Get all unique field names
     $all_fields = [];
     foreach ($selections as $selection) {
       $all_fields = array_merge($all_fields, array_keys($selection['details']));
     }
     $all_fields = array_unique($all_fields);
 
-    // Fields to compare
-    $compare_fields = ['name', 'artist', 'album', 'year', 'genres', 'length', 'image'];
+    // Display each field
+    $display_fields = ['name', 'artist', 'album', 'year', 'genres', 'length', 'image'];
 
-    foreach ($compare_fields as $field) {
-      if (!in_array($field, $all_fields)) {
+    foreach ($display_fields as $field_name) {
+      if (!in_array($field_name, $all_fields)) {
         continue;
       }
 
       $output .= '<tr>';
-      $output .= '<td style="padding: 10px; border: 1px solid #ccc;"><strong>' . ucfirst($field) . '</strong></td>';
-
-      foreach ($selections as $provider => $selection) {
-        $value = $selection['details'][$field] ?? '-';
-
-        if (is_array($value)) {
-          $value = implode(', ', $value);
-        }
-
-        if ($field === 'image' && !empty($value) && $value !== '-') {
-          $value = '<img src="' . htmlspecialchars($value) . '" style="max-width: 100px;">';
-        } else {
-          $value = htmlspecialchars($value);
-        }
-
-        $output .= '<td style="padding: 10px; border: 1px solid #ccc;">' . $value . '</td>';
-      }
-
-      // Radio buttons to select which provider's data to use
-      $output .= '<td style="padding: 10px; border: 1px solid #ccc;">';
-      foreach ($selections as $provider => $selection) {
-        $val = $selection['details'][$field] ?? NULL;
-        if ($val && $val !== '-') {
-          $output .= '<label><input type="radio" name="field_' . $field . '" value="' . $provider . '"> ' . ucfirst($provider) . '</label><br>';
-        }
-      }
+      $output .= '<td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; background: #fafafa;">';
+      $output .= ucfirst(str_replace('_', ' ', $field_name));
       $output .= '</td>';
+
+      foreach ($selections as $selection) {
+        $value = $selection['details'][$field_name] ?? '-';
+
+        $output .= '<td style="padding: 10px; border: 1px solid #ddd;">';
+
+        if ($field_name === 'image' && !empty($value) && $value !== '-') {
+          $output .= '<img src="' . htmlspecialchars($value) . '" style="max-width: 100px; max-height: 100px; border-radius: 4px;">';
+        }
+        elseif (is_array($value)) {
+          $output .= htmlspecialchars(implode(', ', $value));
+        }
+        else {
+          $output .= htmlspecialchars($value);
+        }
+
+        $output .= '</td>';
+      }
 
       $output .= '</tr>';
     }
 
     $output .= '</tbody></table>';
-
-    $output .= '<p><em>' . $this->t('Note: Select which provider\'s data to use for each field.') . '</em></p>';
+    $output .= '</div>';
 
     return $output;
   }
@@ -292,19 +429,45 @@ class MusicComparisonForm extends FormBase
   protected function mergeData($selections, FormStateInterface $form_state)
   {
     $merged = [];
+    $type = $form_state->getValue('content_type');
 
-    // Get first provider's data as base
-    $first = reset($selections);
-    $merged = $first['details'];
-
-    // Store provider IDs
-    foreach ($selections as $provider => $selection) {
-      $merged[$provider . '_id'] = $selection['id'];
+    // Get all provider IDs first
+    $provider_ids = [];
+    foreach ($selections as $key => $selection) {
+      $provider = $selection['provider'];
+      $provider_ids[$provider . '_id'] = $selection['id'];
     }
 
-    // If user made selections from comparison table, use those
-    // For now, just use first provider's data
-    // You can enhance this to read radio button selections
+    // Get field selections from form
+    $compare_fields = $this->getCompareFields($type);
+
+    foreach ($compare_fields as $field_info) {
+      $field_name = $field_info['field'];
+      $form_field_name = 'field_' . $field_name;
+
+      // Get user's selection (format: "key|fieldname")
+      $selected = $form_state->getValue($form_field_name);
+
+      if ($selected) {
+        // Parse the selection
+        list($selected_key, $selected_field) = explode('|', $selected);
+
+        // Get the value from selected provider
+        if (isset($selections[$selected_key])) {
+          $value = $selections[$selected_key]['details'][$selected_field] ?? NULL;
+
+          if ($value !== NULL && $value !== '' && $value !== '-') {
+            $merged[$field_name] = $value;
+          }
+        }
+      }
+    }
+
+    // Add all provider IDs
+    $merged = array_merge($merged, $provider_ids);
+
+    // Add type
+    $merged['type'] = $type;
 
     return $merged;
   }

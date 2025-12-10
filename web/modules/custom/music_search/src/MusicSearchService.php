@@ -176,42 +176,80 @@ class MusicSearchService
         $values['field_discogs_id'] = $data['discogs_id'];
       }
 
-      // Add other fields based on type
+      // Add fields based on type
       if ($type === 'artist') {
-        if(!empty($data['genre'])) {
+        // Genres
+        if (!empty($data['genres']) && is_array($data['genres'])) {
           $values['field_music_genre'] = $this->getOrCreateTerms($data['genres']);
         }
-        if(!empty($data['image'])) {
-          $values['field_images'] = $this->createMediaFromUrl($data['image']);
+
+        // Image
+        if (!empty($data['image'])) {
+          $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Artist Image');
+          if ($media_id) {
+            $values['field_images'] = $media_id;
+          }
         }
       }
       elseif ($type === 'album') {
+        // Artist (if it's a string, not entity reference)
         if (!empty($data['artist'])) {
+          // For now, store as plain text or find/create artist entity
+          // You might want to enhance this to link to actual artist nodes
           $values['field_artist'] = $data['artist'];
         }
+
+        // Year
         if (!empty($data['year'])) {
           $values['field_year_release'] = $data['year'];
         }
-        if (!empty($data['cover_image'])) {
-          $values['field_cover_image'] = $this->createMediaFromUrl($data['cover_image']);
+
+        // Genres
+        if (!empty($data['genres']) && is_array($data['genres'])) {
+          $values['field_music_genre'] = $this->getOrCreateTerms($data['genres']);
+        }
+
+        // Cover Image
+        if (!empty($data['image'])) {
+          $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Album Cover');
+          if ($media_id) {
+            $values['field_cover_image'] = $media_id;
+          }
         }
       }
       elseif ($type === 'song') {
-        if (!empty($data['length'])) {
-          $values['field_length'] = $data['length'];
-        }
+        // Artist
         if (!empty($data['artist'])) {
           $values['field_artist'] = $data['artist'];
         }
+
+        // Album
+        if (!empty($data['album'])) {
+          $values['field_album'] = $data['album'];
+        }
+
+        // Length
+        if (!empty($data['length'])) {
+          $values['field_length'] = $data['length'];
+        }
       }
+
       $node = $node_storage->create($values);
       $node->save();
 
+      $this->loggerFactory->get('music_search')->info('Created @type: @title (nid: @nid)', [
+        '@type' => $type,
+        '@title' => $node->label(),
+        '@nid' => $node->id(),
+      ]);
+
       return $node;
     }
-    catch(\Exception $e) {
-      $this->loggerFactory->get('music_search')->error('Error creating content: @message', ['@message' => $e->getMessage()]);
-      return null;
+    catch (\Exception $e) {
+      $this->loggerFactory->get('music_search')->error('Error creating content: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return NULL;
     }
   }
 
@@ -223,12 +261,14 @@ class MusicSearchService
     $tids = [];
 
     foreach ($term_names as $name) {
+      // Check if term exists
       $terms = $term_storage->loadByProperties([
         'name' => $name,
         'vid' => 'music_genre',
       ]);
 
       if (empty($terms)) {
+        // Create new term
         $term = $term_storage->create([
           'vid' => 'music_genre',
           'name' => $name,
@@ -237,18 +277,60 @@ class MusicSearchService
         $tids[] = $term->id();
       }
       else {
+        // Use existing term
         $term = reset($terms);
         $tids[] = $term->id();
       }
     }
+
     return $tids;
   }
 
   /**
    * Helper to create media from URL.
    */
-  protected function createMediaFromUrl($url) {
+  protected function createMediaFromUrl($url, $name = 'Image') {
+    try {
+      // Download the image
+      $image_data = file_get_contents($url);
 
-    return NULL;
+      if (!$image_data) {
+        return NULL;
+      }
+
+      // Create file
+      $file_repository = \Drupal::service('file.repository');
+      $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $name) . '.jpg';
+
+      $file = $file_repository->writeData(
+        $image_data,
+        'public://music_images/' . $filename,
+        \Drupal\Core\File\FileSystemInterface::EXISTS_RENAME
+      );
+
+      if (!$file) {
+        return NULL;
+      }
+
+      // Create media entity
+      $media_storage = $this->entityTypeManager->getStorage('media');
+      $media = $media_storage->create([
+        'bundle' => 'image',
+        'name' => $name,
+        'field_media_image' => [
+          'target_id' => $file->id(),
+          'alt' => $name,
+        ],
+      ]);
+      $media->save();
+
+      return $media->id();
+    }
+    catch (\Exception $e) {
+      $this->loggerFactory->get('music_search')->error('Error creating media: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return NULL;
+    }
   }
 }
