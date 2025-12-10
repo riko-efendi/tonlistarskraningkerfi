@@ -1,0 +1,66 @@
+/* Layout: two columns for providers */
+.music-search-results__columns {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  margin-top: 1rem;
+}
+
+.music-search-results__column {
+  flex: 1;
+}
+
+.provider-title {
+  margin-bottom: 1rem;
+}
+
+/* Card layout */
+.result-item {
+  display: flex;
+  gap: 15px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+/* Main cover image on the left */
+.result-item__image {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+/* Content in the card */
+.result-item__content {
+  flex: 1;
+}
+
+.result-item__title {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+/* Small thumbnail where the button used to be */
+.result-item__thumb-wrapper {
+  margin-top: 0.5rem;
+}
+
+.result-item__thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+/* Button below the card */
+.result-item__actions {
+  margin-bottom: 1rem;
+}
+
+.result-item__button {
+  display: inline-block;
+}

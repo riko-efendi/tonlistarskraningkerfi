@@ -163,22 +163,30 @@ class MusicSearchForm extends FormBase {
     $output = '<div class="music-search-results">';
     $output .= '<p>' . $this->t('Click "Select" to choose which data to use from each provider.') . '</p>';
 
+    $output .= '<div class="music-search-results__columns">';
+
     foreach ($all_results as $provider => $results) {
       if (empty($results)) {
         continue;
       }
 
-      $output .= '<h3>' . $this->t('Results from @provider', ['@provider' => ucfirst($provider)]) . '</h3>';
+      $output .= '<div class="music-search-results__column music-search-results__column--' . $provider . '">';
+
+      $output .= '<h3 class="provider-title">' . $this->t('Results from @provider', [
+          '@provider' => ucfirst($provider),
+        ]) . '</h3>';
 
       foreach ($results as $index => $item) {
         $item_id = $item['id'];
+
         $output .= '<div class="result-item" data-provider="' . $provider . '" data-id="' . $item_id . '">';
 
         if (!empty($item['image'])) {
-          $output .= '<img src="' . $item['image'] . '" alt="' . htmlspecialchars($item['name']) . '" style="width: 100px; height: 100px; object-fit: cover; float: left; margin-right: 15px;">';
+          $output .= '<img class="result-item__image" src="' . $item['image'] . '" alt="' . htmlspecialchars($item['name']) . '">';
         }
 
-        $output .= '<h4>' . htmlspecialchars($item['name']) . '</h4>';
+        $output .= '<div class="result-item__content">';
+        $output .= '<h4 class="result-item__title">' . htmlspecialchars($item['name']) . '</h4>';
 
         if (!empty($item['artist'])) {
           $output .= '<p><strong>Artist:</strong> ' . htmlspecialchars($item['artist']) . '</p>';
@@ -202,19 +210,26 @@ class MusicSearchForm extends FormBase {
 
         $output .= '<p><strong>' . ucfirst($provider) . ' ID:</strong> ' . htmlspecialchars($item['id']) . '</p>';
 
+        $output .= '</div>';
+        $output .= '</div>';
+
         $select_url = '/admin/content/music-search/compare/' . $provider . '/' . $item_id . '/' . $type;
-        $output .= '<a href="' . $select_url . '" class="button button--primary" style="margin-top: 10px; display: inline-block;">';
+        $output .= '<div class="result-item__actions">';
+        $output .= '<a href="' . $select_url . '" class="button button--primary result-item__button">';
         $output .= $this->t('Select for Comparison');
         $output .= '</a>';
-
-        $output .= '<div style="clear: both;"></div>';
         $output .= '</div>';
       }
+
+      $output .= '</div>';
     }
 
+    $output .= '</div>';
     $output .= '</div>';
 
     return $output;
   }
+
+
 
 }
