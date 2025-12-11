@@ -206,6 +206,32 @@ class MusicSearchService
             ];
           }
         }
+
+        if (!empty($data['profile'])) {
+          $values['field_artist_description_long'] = [
+            'value' => $data['profile'],
+            'format' => 'basic_html',  // or 'plain_text' or 'full_html'
+          ];
+        }
+        elseif (!empty($data['description'])) {
+          $values['field_artist_description_long'] = [
+            'value' => $data['description'],
+            'format' => 'basic_html',
+          ];
+        }
+
+        if (!empty($data['spotify_url'])) {
+          $values['field_website'] = [
+            'uri' => $data['spotify_url'],
+            'title' => 'Spotify Profile',
+          ];
+        }
+        elseif (!empty($data['discogs_url'])) {
+          $values['field_website'] = [
+            'uri' => $data['discogs_url'],
+            'title' => 'Discogs Profile',
+          ];
+        }
       }
       elseif ($type === 'album') {
         // Artist (if it's a string, not entity reference)
