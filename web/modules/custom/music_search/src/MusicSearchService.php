@@ -262,7 +262,12 @@ class MusicSearchService
       elseif ($type === 'song') {
         // Artist
         if (!empty($data['artist'])) {
-          $values['field_artist_song'] = $data['artist'];
+          $artist_node_id = $this->findOrCreateArtist($data['artist'], $data);
+          if ($artist_node_id) {
+            $values['field_artist_song'] = [
+              'target_id' => $artist_node_id,
+            ];
+          }
         }
 
         // Album
@@ -280,7 +285,7 @@ class MusicSearchService
           $parts = explode(':', $data['length']);
           $minutes = isset($parts[0]) ? (int)$parts[0] : 0;
           $seconds = isset($parts[1]) ? (int)$parts[1] : 0;
-          
+
           $values['field_song_duration'] = [
             'duration' => 'PT'.$minutes.'M'.$seconds.'S',
             'seconds' => $seconds + (60 * $minutes),
@@ -392,6 +397,74 @@ class MusicSearchService
     }
     catch (\Exception $e) {
       $this->loggerFactory->get('music_search')->error('Error creating media: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return NULL;
+    }
+  }
+
+  /**
+   * Find or create an artist node.
+   *
+   * @param string $artist_name
+   *   The artist name.
+   * @param array $data
+   *   Additional data from API (optional).
+   *
+   * @return int|null
+   *   The artist node ID or NULL.
+   */
+  protected function findOrCreateArtist($artist_name, array $data = []) {
+    $node_storage = $this->entityTypeManager->getStorage('node');
+
+    // Search for existing artist by name
+    $existing_artists = $node_storage->loadByProperties([
+      'type' => 'artist',
+      'title' => $artist_name,
+    ]);
+
+    if (!empty($existing_artists)) {
+      // Artist exists, return the ID
+      $artist_node = reset($existing_artists);
+
+      $this->loggerFactory->get('music_search')->info('Found existing artist: @name (nid: @nid)', [
+        '@name' => $artist_name,
+        '@nid' => $artist_node->id(),
+      ]);
+
+      return $artist_node->id();
+    }
+
+    // Artist doesn't exist, create it
+    try {
+      $values = [
+        'type' => 'artist',
+        'title' => $artist_name,
+        'status' => 1,
+      ];
+
+      // Add Spotify ID if available
+      if (!empty($data['artist_id'])) {
+        $values['field_spotify_id'] = $data['artist_id'];
+      }
+
+      // Add Discogs ID if available
+      if (!empty($data['discogs_artist_id'])) {
+        $values['field_discogs_id'] = $data['discogs_artist_id'];
+      }
+
+      $artist_node = $node_storage->create($values);
+      $artist_node->save();
+
+      $this->loggerFactory->get('music_search')->info('Created new artist: @name (nid: @nid)', [
+        '@name' => $artist_name,
+        '@nid' => $artist_node->id(),
+      ]);
+
+      return $artist_node->id();
+    }
+    catch (\Exception $e) {
+      $this->loggerFactory->get('music_search')->error('Error creating artist: @message', [
         '@message' => $e->getMessage(),
       ]);
       return NULL;
