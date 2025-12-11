@@ -277,7 +277,20 @@ class MusicSearchService
 
         // Length
         if (!empty($data['length'])) {
-          $values['field_song_duration'] = $data['length'];
+          $parts = explode(':', $data['length']);
+          $minutes = isset($parts[0]) ? (int)$parts[0] : 0;
+          $seconds = isset($parts[1]) ? (int)$parts[1] : 0;
+          
+          $values['field_song_duration'] = [
+            'duration' => 'PT'.$minutes.'M'.$seconds.'S',
+            'seconds' => $seconds + (60 * $minutes),
+          ];
+
+          $this->loggerFactory->get('music_search')->info('Song duration: @length → @min minutes @sec seconds', [
+            '@length' => $data['length'],
+            '@min' => $minutes,
+            '@sec' => $seconds,
+          ]);
         }
       }
 
