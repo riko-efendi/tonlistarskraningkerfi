@@ -270,6 +270,11 @@ class MusicSearchService
           $values['field_album'] = $data['album'];
         }
 
+        // Genres
+        if (!empty($data['genres']) && is_array($data['genres'])) {
+          $values['field_music_genre'] = $this->getOrCreateTerms($data['genres']);
+        }
+
         // Length
         if (!empty($data['length'])) {
           $values['field_song_duration'] = $data['length'];
