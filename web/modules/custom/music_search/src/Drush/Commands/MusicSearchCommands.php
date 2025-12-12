@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\music_search\Commands;
+namespace Drupal\music_search\Drush\Commands;
 
 use Drush\Commands\DrushCommands;
 use Drupal\field\Entity\FieldConfig;
@@ -10,25 +10,29 @@ use Drupal\node\Entity\NodeType;
 /**
  * Drush commands for Music Search.
  */
-class MusicSearchCommands extends DrushCommands
-{
+class MusicSearchCommands extends DrushCommands {
 
   /**
-   * Create ONLY the required fields for Album, Artist, Band, Song.
+   * Create content types AND required fields for Album, Artist, Band, Song.
    *
-   * @command music-search:create-fields
-   * @aliases ms-fields
+   * @command music-search:setup
+   * @aliases ms-setup
    */
-  public function createFields(): void
-  {
-    $bundles = ['album', 'artist', 'band', 'song'];
+  public function setup(): void {
+    $this->createContentType('album', 'Album');
+    $this->createContentType('artist', 'Artist');
+    $this->createContentType('band', 'Band');
+    $this->createContentType('song', 'Song');
 
-    foreach ($bundles as $bundle) {
-      if (!NodeType::load($bundle)) {
-        $this->logger()->warning("Content type '{$bundle}' does not exist. Skipping its fields.");
-      }
-    }
+    $this->createFields();
 
+    $this->logger()->success('Content types and fields are set up.');
+  }
+
+  /**
+   * Create ONLY the required fields.
+   */
+  private function createFields(): void {
     // ---------- ALBUM ----------
     $this->createMediaReference('album', 'field_album_cover', 'Album Cover', ['image']);
     $this->createTextLong('album', 'field_album_description', 'Album Description');
@@ -48,7 +52,7 @@ class MusicSearchCommands extends DrushCommands
     $this->createDate('artist', 'field_date_of_birth', 'Born');
     $this->createDate('artist', 'field_date_of_death', 'Died');
     $this->createString('artist', 'field_discogs_id', 'discogs_id');
-    $this->createTaxonomyReference('artist', 'field_music_genre_artist', 'Music Genre', 'music_genre', 1);
+    $this->createTaxonomyReference('artist', 'field_music_genre_artist', 'Music Genre', 'music_genre');
     $this->createString('artist', 'field_spotify_id', 'spotify_id');
     $this->createLink('artist', 'field_website', 'Website');
 
@@ -66,21 +70,29 @@ class MusicSearchCommands extends DrushCommands
     // ---------- SONG ----------
     $this->createNodeReference('song', 'field_artist_song', 'Artist', ['artist', 'band'], 1);
     $this->createString('song', 'field_discogs_id', 'discogs_id');
-    $this->createTaxonomyReference('song', 'field_music_genre', 'Genre', 'music_genre', 1);
+    $this->createTaxonomyReference('song', 'field_music_genre', 'Genre', 'music_genre');
     $this->createDuration('song', 'field_song_duration', 'Length');
     $this->createMediaReference('song', 'field_spotify', 'Spotify', ['spotify']);
     $this->createString('song', 'field_spotify_id', 'spotify_id');
-
-    $this->logger()->success('Field creation finished (existing fields were skipped).');
   }
 
-  private function bundleExists(string $bundle): bool
-  {
-    return (bool)NodeType::load($bundle);
+  /* ===================== HELPERS ===================== */
+
+  private function createContentType(string $machine, string $label): void {
+    if (NodeType::load($machine)) {
+      return;
+    }
+    NodeType::create([
+      'type' => $machine,
+      'name' => $label,
+    ])->save();
   }
 
-  private function ensureStorage(string $entity_type, string $field_name, string $type, array $settings = [], int $cardinality = 1): void
-  {
+  private function bundleExists(string $bundle): bool {
+    return (bool) NodeType::load($bundle);
+  }
+
+  private function ensureStorage(string $entity_type, string $field_name, string $type, array $settings = [], int $cardinality = 1): void {
     if (!FieldStorageConfig::loadByName($entity_type, $field_name)) {
       FieldStorageConfig::create([
         'field_name' => $field_name,
@@ -92,101 +104,84 @@ class MusicSearchCommands extends DrushCommands
     }
   }
 
-  private function ensureInstance(string $entity_type, string $bundle, string $field_name, string $label, array $settings = []): void
-  {
-    if (FieldConfig::loadByName($entity_type, $bundle, $field_name)) {
-      return;
+  private function ensureInstance(string $entity_type, string $bundle, string $field_name, string $label, array $settings = []): void {
+    if (!FieldConfig::loadByName($entity_type, $bundle, $field_name)) {
+      FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => $entity_type,
+        'bundle' => $bundle,
+        'label' => $label,
+        'settings' => $settings,
+      ])->save();
     }
-    FieldConfig::create([
-      'field_name' => $field_name,
-      'entity_type' => $entity_type,
-      'bundle' => $bundle,
-      'label' => $label,
-      'settings' => $settings,
-    ])->save();
   }
 
-  private function createString(string $bundle, string $field_name, string $label): void
-  {
+  private function createString(string $bundle, string $field_name, string $label): void {
     if (!$this->bundleExists($bundle)) return;
     $this->ensureStorage('node', $field_name, 'string');
     $this->ensureInstance('node', $bundle, $field_name, $label);
   }
 
-  private function createTextLong(string $bundle, string $field_name, string $label): void
-  {
+  private function createTextLong(string $bundle, string $field_name, string $label): void {
     if (!$this->bundleExists($bundle)) return;
     $this->ensureStorage('node', $field_name, 'text_long');
     $this->ensureInstance('node', $bundle, $field_name, $label);
   }
 
-  private function createBoolean(string $bundle, string $field_name, string $label): void
-  {
+  private function createBoolean(string $bundle, string $field_name, string $label): void {
     if (!$this->bundleExists($bundle)) return;
     $this->ensureStorage('node', $field_name, 'boolean');
     $this->ensureInstance('node', $bundle, $field_name, $label);
   }
 
-  private function createDate(string $bundle, string $field_name, string $label): void
-  {
+  private function createDate(string $bundle, string $field_name, string $label): void {
     if (!$this->bundleExists($bundle)) return;
     $this->ensureStorage('node', $field_name, 'datetime', ['datetime_type' => 'date']);
     $this->ensureInstance('node', $bundle, $field_name, $label, ['datetime_type' => 'date']);
   }
 
-  private function createLink(string $bundle, string $field_name, string $label): void
-  {
+  private function createLink(string $bundle, string $field_name, string $label): void {
     if (!$this->bundleExists($bundle)) return;
     $this->ensureStorage('node', $field_name, 'link');
     $this->ensureInstance('node', $bundle, $field_name, $label);
   }
 
-  private function createDuration(string $bundle, string $field_name, string $label): void
-  {
+  private function createDuration(string $bundle, string $field_name, string $label): void {
     if (!$this->bundleExists($bundle)) return;
     $this->ensureStorage('node', $field_name, 'duration');
     $this->ensureInstance('node', $bundle, $field_name, $label);
   }
 
-  private function createNodeReference(string $bundle, string $field_name, string $label, array $target_bundles, int $cardinality = 1): void
-  {
+  private function createNodeReference(string $bundle, string $field_name, string $label, array $targets, int $cardinality = 1): void {
     if (!$this->bundleExists($bundle)) return;
 
-    $this->ensureStorage('node', $field_name, 'entity_reference', [
-      'target_type' => 'node',
-    ], $cardinality);
+    $this->ensureStorage('node', $field_name, 'entity_reference', ['target_type' => 'node'], $cardinality);
 
     $this->ensureInstance('node', $bundle, $field_name, $label, [
       'handler' => 'default:node',
       'handler_settings' => [
-        'target_bundles' => array_combine($target_bundles, $target_bundles),
+        'target_bundles' => array_combine($targets, $targets),
       ],
     ]);
   }
 
-  private function createMediaReference(string $bundle, string $field_name, string $label, array $media_bundles, int $cardinality = 1): void
-  {
+  private function createMediaReference(string $bundle, string $field_name, string $label, array $targets, int $cardinality = 1): void {
     if (!$this->bundleExists($bundle)) return;
 
-    $this->ensureStorage('node', $field_name, 'entity_reference', [
-      'target_type' => 'media',
-    ], $cardinality);
+    $this->ensureStorage('node', $field_name, 'entity_reference', ['target_type' => 'media'], $cardinality);
 
     $this->ensureInstance('node', $bundle, $field_name, $label, [
       'handler' => 'default:media',
       'handler_settings' => [
-        'target_bundles' => array_combine($media_bundles, $media_bundles),
+        'target_bundles' => array_combine($targets, $targets),
       ],
     ]);
   }
 
-  private function createTaxonomyReference(string $bundle, string $field_name, string $label, string $vocabulary, int $cardinality = 1): void
-  {
+  private function createTaxonomyReference(string $bundle, string $field_name, string $label, string $vocabulary): void {
     if (!$this->bundleExists($bundle)) return;
 
-    $this->ensureStorage('node', $field_name, 'entity_reference', [
-      'target_type' => 'taxonomy_term',
-    ], $cardinality);
+    $this->ensureStorage('node', $field_name, 'entity_reference', ['target_type' => 'taxonomy_term']);
 
     $this->ensureInstance('node', $bundle, $field_name, $label, [
       'handler' => 'default:taxonomy_term',
