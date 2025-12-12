@@ -5,3 +5,9 @@
   flex-shrink: 0;
   border-radius: 4px;
 }
+
+.selected-items {
+  display: flex;
+  flex-direction: row;
+  gap: 64px;
+}
