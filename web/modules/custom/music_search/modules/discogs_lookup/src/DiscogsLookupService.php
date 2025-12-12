@@ -63,7 +63,7 @@ class DiscogsLookupService
       case 'album':
       case 'song':
       default:
-        // Discogs doesn’t have 'album' or 'song' types, use 'release'.
+        // Discogs does not have /album or /song use /release.
         $discogs_type = 'release';
         break;
     }

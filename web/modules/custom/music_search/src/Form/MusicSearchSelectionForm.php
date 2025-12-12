@@ -55,7 +55,6 @@ class MusicSearchSelectionForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, $provider = NULL, $id = NULL, $type = NULL) {
-    // Get details from provider
     if ($provider && $id && $type) {
       $details = $this->musicSearchService->getDetails($provider, $id, $type);
 
@@ -97,11 +96,9 @@ class MusicSearchSelectionForm extends FormBase {
     $provider_id = $form_state->getValue('provider_id');
     $type = $form_state->getValue('content_type');
 
-    // Get details again
     $details = $this->musicSearchService->getDetails($provider, $provider_id, $type);
 
     if ($details) {
-      // Create content
       $node = $this->musicSearchService->createContent($details, $type);
 
       if ($node) {
@@ -110,7 +107,6 @@ class MusicSearchSelectionForm extends FormBase {
           '@title' => $node->label(),
         ]));
 
-        // Redirect to the created node
         $form_state->setRedirect('entity.node.canonical', ['node' => $node->id()]);
       }
       else {
@@ -131,7 +127,6 @@ class MusicSearchSelectionForm extends FormBase {
       $output .= '<img src="' . $details['image'] . '" style="max-width: 300px;">';
     }
 
-    // Show all available data
     foreach ($details as $key => $value) {
       if (in_array($key, ['id', 'name', 'image', 'provider'])) {
         continue;

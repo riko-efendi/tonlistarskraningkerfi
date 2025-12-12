@@ -207,7 +207,6 @@ Class SpotifyLookupService {
   protected function formatResults($data, $type) {
     $results = [];
 
-    // Artist search results
     if ($type === 'artist' && isset($data['artists']['items'])) {
       foreach ($data['artists']['items'] as $item) {
         $results[] = [
@@ -221,10 +220,8 @@ Class SpotifyLookupService {
       }
     }
 
-    // Album search results
     elseif ($type === 'album' && isset($data['albums']['items'])) {
       foreach ($data['albums']['items'] as $item) {
-        // Extract artist information
         $artist_name = 'Unknown';
         $artist_id = NULL;
 
@@ -247,14 +244,12 @@ Class SpotifyLookupService {
       }
     }
 
-    // Song/Track search results
     elseif ($type === 'song' && isset($data['tracks']['items'])) {
       foreach ($data['tracks']['items'] as $item) {
         $duration_ms = $item['duration_ms'] ?? 0;
         $minutes = floor($duration_ms / 60000);
         $seconds = floor(($duration_ms % 60000) / 1000);
 
-        // Extract artist and album information
         $artist_name = 'Unknown';
         $artist_id = NULL;
         $album_name = NULL;
@@ -305,7 +300,6 @@ Class SpotifyLookupService {
     }
 
     elseif ($type === 'album') {
-      // Extract artist information
       $artist_name = 'Unknown';
       $artist_id = NULL;
 
@@ -336,7 +330,6 @@ Class SpotifyLookupService {
       $minutes = floor($duration_ms / 60000);
       $seconds = floor(($duration_ms % 60000) / 1000);
 
-      // Extract artist and album information
       $artist_name = 'Unknown';
       $artist_id = NULL;
       $album_name = NULL;

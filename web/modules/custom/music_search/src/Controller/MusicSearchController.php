@@ -51,7 +51,6 @@ class MusicSearchController extends ControllerBase {
         $query = $request->query->get('q');
         $type = $request->query->get('type', 'artist');
 
-        // Validate query parameter
         if (empty($query)) {
             return new JsonResponse([
                 'error' => 'Query parameter "q" is required',
@@ -59,7 +58,6 @@ class MusicSearchController extends ControllerBase {
             ], 400);
         }
 
-        // Validate type parameter
         $valid_types = ['artist', 'album', 'song'];
         if (!in_array($type, $valid_types)) {
             return new JsonResponse([
@@ -68,11 +66,9 @@ class MusicSearchController extends ControllerBase {
             ], 400);
         }
 
-        // Search using the service
         try {
             $results = $this->musicSearchService->searchAll($query, $type);
 
-            // Count total results
             $total = 0;
             foreach ($results as $provider_results) {
                 $total += count($provider_results);
@@ -110,7 +106,6 @@ class MusicSearchController extends ControllerBase {
     public function getDetailsApi(Request $request, $provider, $id) {
         $type = $request->query->get('type', 'artist');
 
-        // Validate provider
         $valid_providers = ['spotify', 'discogs'];
         if (!in_array($provider, $valid_providers)) {
             return new JsonResponse([
@@ -119,7 +114,6 @@ class MusicSearchController extends ControllerBase {
             ], 400);
         }
 
-        // Validate type
         $valid_types = ['artist', 'album', 'song'];
         if (!in_array($type, $valid_types)) {
             return new JsonResponse([

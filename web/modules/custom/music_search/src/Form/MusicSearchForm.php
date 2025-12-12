@@ -66,7 +66,7 @@ class MusicSearchForm extends FormBase {
       $isLocked = TRUE;
       $first = reset($selections);
       if (!empty($first['type'])) {
-        $defaultType = $first['type']; // artist | album | song
+        $defaultType = $first['type'];
       }
     }
 
@@ -142,7 +142,7 @@ class MusicSearchForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $query = $form_state->getValue('query');
-    $type  = $form_state->getValue('type');  // when locked, this will be the locked type
+    $type  = $form_state->getValue('type');
 
     $results = $this->musicSearch->searchAll($query, $type);
 
