@@ -474,6 +474,15 @@ class MusicComparisonForm extends FormBase
     // Add type
     $merged['type'] = $type;
 
+    if ($type === 'artist') {
+      foreach ($selections as $selection) {
+        if (!empty($selection['details']['members'])) {
+          $merged['members'] = $selection['details']['members'];
+          break;
+        }
+      }
+    }
+
     return $merged;
   }
 

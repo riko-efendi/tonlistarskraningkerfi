@@ -10,20 +10,19 @@ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use GuzzleHttp\ClientInterface;
 
 /**
- * Service for searching music across multiple providers
+ * Service for searching music across multiple providers.
  */
+class MusicSearchService {
 
-class MusicSearchService
-{
   /**
-   * The config factory
+   * The config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
    */
   protected $configFactory;
 
   /**
-   * The Http client
+   * The HTTP client.
    *
    * @var \GuzzleHttp\ClientInterface
    */
@@ -41,7 +40,6 @@ class MusicSearchService
    *
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
    */
-
   protected $entityTypeManager;
 
   /**
@@ -52,22 +50,21 @@ class MusicSearchService
   protected $spotifyService;
 
   /**
-   * The Discogs lookup Service
+   * The Discogs lookup Service.
    *
    * @var \Drupal\discogs_lookup\DiscogsLookupService|null
    */
   protected $discogsService;
 
   /**
-   * Constructs a MusicSearchService object
+   * Constructs a MusicSearchService object.
    */
   public function __construct(
     ConfigFactoryInterface        $config_factory,
     ClientInterface               $http_client,
     LoggerChannelFactoryInterface $logger_factory,
     EntityTypeManagerInterface    $entity_type_manager,
-  )
-  {
+  ) {
     $this->configFactory = $config_factory;
     $this->httpClient = $http_client;
     $this->loggerFactory = $logger_factory;
@@ -75,33 +72,31 @@ class MusicSearchService
   }
 
   /**
-   * Sets the Spotify service
+   * Sets the Spotify service.
    */
   public function setSpotifyService($service) {
     $this->spotifyService = $service;
   }
 
   /**
-   * Sets the Discogs service
+   * Sets the Discogs service.
    */
-  public function setDiscogsService($service)
-  {
+  public function setDiscogsService($service) {
     $this->discogsService = $service;
   }
 
   /**
-   * Search across all available services
+   * Search across all available services.
    *
    * @param string $query
-   *  The search query
+   *   The search query.
    * @param string $type
-   *  The type: 'artist', 'album', or 'song'.
+   *   The type: 'artist', 'album', or 'song'.
    *
    * @return array
-   *  Combined results from all services.
+   *   Combined results from all services.
    */
-  public function searchAll(string $query, string $type = 'artist')
-  {
+  public function searchAll(string $query, string $type = 'artist') {
     $results = [
       'spotify' => [],
       'discogs' => [],
@@ -110,7 +105,8 @@ class MusicSearchService
     if ($this->spotifyService) {
       try {
         $results['spotify'] = $this->spotifyService->search($query, $type);
-      } catch (\Exception $e) {
+      }
+      catch (\Exception $e) {
         $this->loggerFactory->get('music_search')->error(
           'Spotify search error: @message',
           ['@message' => $e->getMessage()]
@@ -121,14 +117,14 @@ class MusicSearchService
     if ($this->discogsService) {
       try {
         $results['discogs'] = $this->discogsService->search($query, $type);
-      } catch (\Exception $e) {
+      }
+      catch (\Exception $e) {
         $this->loggerFactory->get('music_search')->error(
           'Discogs search error: @message',
           ['@message' => $e->getMessage()]
         );
       }
     }
-
 
     return $results;
   }
@@ -137,35 +133,35 @@ class MusicSearchService
    * Get detailed information from a specific provider.
    *
    * @param string $provider
-   *  The provider: 'spotify' or 'discogs'
+   *   The provider: 'spotify' or 'discogs'.
    * @param string $id
-   *  The item ID
+   *   The item ID.
    * @param string $type
-   *  The type: 'artist', 'album', or 'song'.
+   *   The type: 'artist', 'album', or 'song'.
    *
    * @return array|null
-   *  Detailed information or null
+   *   Detailed information or NULL.
    */
-  public function getDetails($provider, $id, $type)
-  {
+  public function getDetails($provider, $id, $type) {
     if ($provider === 'spotify' && $this->spotifyService) {
       return $this->spotifyService->getDetails($id, $type);
-    } elseif ($provider === 'discogs' && $this->discogsService) {
+    }
+    elseif ($provider === 'discogs' && $this->discogsService) {
       return $this->discogsService->getDetails($id, $type);
     }
     return NULL;
   }
 
   /**
-   * Create content from selected data
+   * Create content from selected data.
    *
    * @param array $data
-   * The selected data from various providers
+   *   The selected data from various providers.
    * @param string $type
-   *  The type: 'artist', 'album', or 'song'.
+   *   The type: 'artist', 'album', or 'song'.
    *
-   * @return \Drupal\Core\Entity\EntityInterface|Null
-   * The created node or NULL
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   The created node or NULL.
    */
   public function createContent(array $data, string $type) {
 
@@ -174,16 +170,30 @@ class MusicSearchService
       ['@data' => Json::encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)]
     );
 
+    // --- NEW: if an artist has members, treat it as a band -------------------
+    if ($type === 'artist' && !empty($data['members']) && is_array($data['members'])) {
+      $this->loggerFactory->get('music_search')->info(
+        'Artist has members, creating Band instead for @name',
+        ['@name' => $data['name'] ?? 'Unknown']
+      );
+      // Assumes your Band content type machine name is "band".
+      $type = 'band';
+    }
+
     try {
       $node_storage = $this->entityTypeManager->getStorage('node');
 
+      if ($type === 'artist' && !empty($data['members'])) {
+        $type = 'band';
+      }
+
       $values = [
         'type' => $type,
-        'title' => $data['name'] ?? $data['title'], 'Untitled',
+        'title' => $data['name'] ?? ($data['title'] ?? 'Untitled'),
         'status' => 1,
       ];
 
-      // Add provider IDs
+      // Provider IDs (shared across bundles if the fields exist there).
       if (!empty($data['spotify_id'])) {
         $values['field_spotify_id'] = $data['spotify_id'];
       }
@@ -191,13 +201,14 @@ class MusicSearchService
         $values['field_discogs_id'] = $data['discogs_id'];
       }
 
-      // Add fields based on type
+      // ---------------------- ARTIST ----------------------------------------
       if ($type === 'artist') {
-        // Genres
+        // Genres (taxonomy: music_genre) – artist-specific field.
         if (!empty($data['genres']) && is_array($data['genres'])) {
           $values['field_music_genre_artist'] = $this->getOrCreateTerms($data['genres']);
         }
 
+        // Artist image -> field_artist_image (Media reference).
         if (!empty($data['image'])) {
           $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Artist Image');
           if ($media_id) {
@@ -207,10 +218,11 @@ class MusicSearchService
           }
         }
 
+        // Long description / profile.
         if (!empty($data['profile'])) {
           $values['field_artist_description_long'] = [
             'value' => $data['profile'],
-            'format' => 'basic_html',  // or 'plain_text' or 'full_html'
+            'format' => 'basic_html',
           ];
         }
         elseif (!empty($data['description'])) {
@@ -220,6 +232,7 @@ class MusicSearchService
           ];
         }
 
+        // Website (Spotify or Discogs).
         if (!empty($data['spotify_url'])) {
           $values['field_website'] = [
             'uri' => $data['spotify_url'],
@@ -233,25 +246,93 @@ class MusicSearchService
           ];
         }
       }
+
+      // ---------------------- BAND ------------------------------------------
+      elseif ($type === 'band') {
+        // Description: use profile/description into field_band_description (plain long).
+        $band_description = $data['profile'] ?? ($data['description'] ?? '');
+        if (!empty($band_description)) {
+          // Text (plain, long) only needs the value.
+          $values['field_band_description'] = $band_description;
+        }
+
+        // Band logo image -> field_band_logo (Media reference).
+        if (!empty($data['image'])) {
+          $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Band Logo');
+          if ($media_id) {
+            $values['field_band_logo'] = [
+              'target_id' => $media_id,
+            ];
+          }
+        }
+
+        // Website (same field name as Artist: field_website).
+        if (!empty($data['spotify_url'])) {
+          $values['field_website'] = [
+            'uri' => $data['spotify_url'],
+            'title' => 'Spotify Profile',
+          ];
+        }
+        elseif (!empty($data['discogs_url'])) {
+          $values['field_website'] = [
+            'uri' => $data['discogs_url'],
+            'title' => 'Discogs Profile',
+          ];
+        }
+
+        // Members → field_band_members (entity reference to Artist content).
+        if (!empty($data['members']) && is_array($data['members'])) {
+          $member_refs = [];
+
+          foreach ($data['members'] as $member) {
+            // Handle both "string" and ["name" => "..."] formats.
+            if (is_string($member)) {
+              $member_name = trim($member);
+            }
+            elseif (is_array($member) && !empty($member['name'])) {
+              $member_name = trim($member['name']);
+            }
+            else {
+              continue;
+            }
+
+            if ($member_name === '') {
+              continue;
+            }
+
+            $artist_nid = $this->findOrCreateArtist($member_name);
+            if ($artist_nid) {
+              $member_refs[] = ['target_id' => $artist_nid];
+            }
+          }
+
+          if (!empty($member_refs)) {
+            $values['field_band_members'] = $member_refs;
+          }
+        }
+
+        // (Optional) If you later want to attach albums here:
+        // $values['field_band_albums'] = [...];
+      }
+
+      // ---------------------- ALBUM -----------------------------------------
       elseif ($type === 'album') {
-        // Artist (if it's a string, not entity reference)
+        // Artist (stored as plain text for now).
         if (!empty($data['artist'])) {
-          // For now, store as plain text or find/create artist entity
-          // You might want to enhance this to link to actual artist nodes
           $values['field_artist'] = $data['artist'];
         }
 
-        // Year
+        // Year.
         if (!empty($data['year'])) {
           $values['field_release_year'] = $data['year'];
         }
 
-        // Genres
+        // Genres (shared music_genre vocabulary).
         if (!empty($data['genres']) && is_array($data['genres'])) {
           $values['field_music_genre'] = $this->getOrCreateTerms($data['genres']);
         }
 
-        // Cover Image
+        // Cover image -> field_album_cover (Media reference).
         if (!empty($data['image'])) {
           $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Album Cover');
           if ($media_id) {
@@ -259,8 +340,10 @@ class MusicSearchService
           }
         }
       }
+
+      // ---------------------- SONG ------------------------------------------
       elseif ($type === 'song') {
-        // Artist
+        // Artist reference: create/find Artist node.
         if (!empty($data['artist'])) {
           $artist_node_id = $this->findOrCreateArtist($data['artist'], $data);
           if ($artist_node_id) {
@@ -270,50 +353,58 @@ class MusicSearchService
           }
         }
 
-        // Album
+        // Album (stored as plain text for now).
         if (!empty($data['album'])) {
           $values['field_album'] = $data['album'];
         }
 
-        // Genres
+        // Genres.
         if (!empty($data['genres']) && is_array($data['genres'])) {
           $values['field_music_genre'] = $this->getOrCreateTerms($data['genres']);
         }
 
-        // Length
+        // Length as duration.
         if (!empty($data['length'])) {
           $parts = explode(':', $data['length']);
-          $minutes = isset($parts[0]) ? (int)$parts[0] : 0;
-          $seconds = isset($parts[1]) ? (int)$parts[1] : 0;
+          $minutes = isset($parts[0]) ? (int) $parts[0] : 0;
+          $seconds = isset($parts[1]) ? (int) $parts[1] : 0;
 
           $values['field_song_duration'] = [
-            'duration' => 'PT'.$minutes.'M'.$seconds.'S',
+            'duration' => 'PT' . $minutes . 'M' . $seconds . 'S',
             'seconds' => $seconds + (60 * $minutes),
           ];
 
-          $this->loggerFactory->get('music_search')->info('Song duration: @length → @min minutes @sec seconds', [
-            '@length' => $data['length'],
-            '@min' => $minutes,
-            '@sec' => $seconds,
-          ]);
+          $this->loggerFactory->get('music_search')->info(
+            'Song duration: @length → @min minutes @sec seconds',
+            [
+              '@length' => $data['length'],
+              '@min' => $minutes,
+              '@sec' => $seconds,
+            ]
+          );
         }
       }
 
+      // ----------------------------------------------------------------------
       $node = $node_storage->create($values);
       $node->save();
 
-      $this->loggerFactory->get('music_search')->info('Created @type: @title (nid: @nid)', [
-        '@type' => $type,
-        '@title' => $node->label(),
-        '@nid' => $node->id(),
-      ]);
+      $this->loggerFactory->get('music_search')->info(
+        'Created @type: @title (nid: @nid)',
+        [
+          '@type' => $type,
+          '@title' => $node->label(),
+          '@nid' => $node->id(),
+        ]
+      );
 
       return $node;
     }
     catch (\Exception $e) {
-      $this->loggerFactory->get('music_search')->error('Error creating content: @message', [
-        '@message' => $e->getMessage(),
-      ]);
+      $this->loggerFactory->get('music_search')->error(
+        'Error creating content: @message',
+        ['@message' => $e->getMessage()]
+      );
       return NULL;
     }
   }
@@ -326,14 +417,12 @@ class MusicSearchService
     $tids = [];
 
     foreach ($term_names as $name) {
-      // Check if term exists
       $terms = $term_storage->loadByProperties([
         'name' => $name,
         'vid' => 'music_genre',
       ]);
 
       if (empty($terms)) {
-        // Create new term
         $term = $term_storage->create([
           'vid' => 'music_genre',
           'name' => $name,
@@ -342,7 +431,6 @@ class MusicSearchService
         $tids[] = $term->id();
       }
       else {
-        // Use existing term
         $term = reset($terms);
         $tids[] = $term->id();
       }
@@ -361,6 +449,7 @@ class MusicSearchService
         return NULL;
       }
 
+      /** @var \Drupal\Core\File\FileSystemInterface $file_system */
       $file_system = \Drupal::service('file_system');
       $directory = 'public://music_images';
 
@@ -369,6 +458,7 @@ class MusicSearchService
         FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS
       );
 
+      /** @var \Drupal\file\FileRepositoryInterface $file_repository */
       $file_repository = \Drupal::service('file.repository');
       $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $name) . '.jpg';
 
@@ -396,9 +486,10 @@ class MusicSearchService
       return $media->id();
     }
     catch (\Exception $e) {
-      $this->loggerFactory->get('music_search')->error('Error creating media: @message', [
-        '@message' => $e->getMessage(),
-      ]);
+      $this->loggerFactory->get('music_search')->error(
+        'Error creating media: @message',
+        ['@message' => $e->getMessage()]
+      );
       return NULL;
     }
   }
@@ -417,25 +508,27 @@ class MusicSearchService
   protected function findOrCreateArtist($artist_name, array $data = []) {
     $node_storage = $this->entityTypeManager->getStorage('node');
 
-    // Search for existing artist by name
+    // Search for existing artist by name.
     $existing_artists = $node_storage->loadByProperties([
       'type' => 'artist',
       'title' => $artist_name,
     ]);
 
     if (!empty($existing_artists)) {
-      // Artist exists, return the ID
       $artist_node = reset($existing_artists);
 
-      $this->loggerFactory->get('music_search')->info('Found existing artist: @name (nid: @nid)', [
-        '@name' => $artist_name,
-        '@nid' => $artist_node->id(),
-      ]);
+      $this->loggerFactory->get('music_search')->info(
+        'Found existing artist: @name (nid: @nid)',
+        [
+          '@name' => $artist_name,
+          '@nid' => $artist_node->id(),
+        ]
+      );
 
       return $artist_node->id();
     }
 
-    // Artist doesn't exist, create it
+    // Artist doesn't exist, create it.
     try {
       $values = [
         'type' => 'artist',
@@ -443,12 +536,12 @@ class MusicSearchService
         'status' => 1,
       ];
 
-      // Add Spotify ID if available
+      // Add Spotify ID if available.
       if (!empty($data['artist_id'])) {
         $values['field_spotify_id'] = $data['artist_id'];
       }
 
-      // Add Discogs ID if available
+      // Add Discogs ID if available.
       if (!empty($data['discogs_artist_id'])) {
         $values['field_discogs_id'] = $data['discogs_artist_id'];
       }
@@ -456,18 +549,23 @@ class MusicSearchService
       $artist_node = $node_storage->create($values);
       $artist_node->save();
 
-      $this->loggerFactory->get('music_search')->info('Created new artist: @name (nid: @nid)', [
-        '@name' => $artist_name,
-        '@nid' => $artist_node->id(),
-      ]);
+      $this->loggerFactory->get('music_search')->info(
+        'Created new artist: @name (nid: @nid)',
+        [
+          '@name' => $artist_name,
+          '@nid' => $artist_node->id(),
+        ]
+      );
 
       return $artist_node->id();
     }
     catch (\Exception $e) {
-      $this->loggerFactory->get('music_search')->error('Error creating artist: @message', [
-        '@message' => $e->getMessage(),
-      ]);
+      $this->loggerFactory->get('music_search')->error(
+        'Error creating artist: @message',
+        ['@message' => $e->getMessage()]
+      );
       return NULL;
     }
   }
+
 }
