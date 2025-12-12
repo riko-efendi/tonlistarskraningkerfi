@@ -210,7 +210,7 @@ class MusicSearchService
         if (!empty($data['profile'])) {
           $values['field_artist_description_long'] = [
             'value' => $data['profile'],
-            'format' => 'basic_html',  // or 'plain_text' or 'full_html'
+            'format' => 'basic_html',  
           ];
         }
         elseif (!empty($data['description'])) {
@@ -232,6 +232,8 @@ class MusicSearchService
             'title' => 'Discogs Profile',
           ];
         }
+        $node = $this->createOrUpdateArtist($data, TRUE);
+        return $node;
       }
       elseif ($type === 'album') {
         // Artist (if it's a string, not entity reference)
@@ -465,6 +467,160 @@ class MusicSearchService
     }
     catch (\Exception $e) {
       $this->loggerFactory->get('music_search')->error('Error creating artist: @message', [
+        '@message' => $e->getMessage(),
+      ]);
+      return NULL;
+    }
+  }
+
+  /**
+   * Create or update artist content.
+   *
+   * @param array $data
+   *   The artist data.
+   * @param bool $update_existing
+   *   Whether to update existing artist if found.
+   *
+   * @return \Drupal\Core\Entity\EntityInterface|null
+   *   The created/updated node or NULL.
+   */
+  public function createOrUpdateArtist(array $data, $update_existing = TRUE) {
+    try {
+      $node_storage = $this->entityTypeManager->getStorage('node');
+
+      $existing_artists = $node_storage->loadByProperties([
+        'type' => 'artist',
+        'title' => $data['name'],
+      ]);
+
+      if (!empty($existing_artists) && $update_existing) {
+        $node = reset($existing_artists);
+
+        $this->loggerFactory->get('music_search')->info('Updating existing artist: @name (nid: @nid)', [
+          '@name' => $data['name'],
+          '@nid' => $node->id(),
+        ]);
+
+        // Update fields with new data
+        if (!empty($data['spotify_id'])) {
+          $node->set('field_spotify_id', $data['spotify_id']);
+        }
+
+        if (!empty($data['discogs_id'])) {
+          $node->set('field_discogs_id', $data['discogs_id']);
+        }
+
+        // Update genres
+        if (!empty($data['genres']) && is_array($data['genres'])) {
+          $tids = $this->getOrCreateTerms($data['genres']);
+          if (!empty($tids)) {
+            $node->set('field_music_genre_artist', $tids);
+          }
+        }
+
+        // Update image
+        if (!empty($data['image'])) {
+          $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Artist Image');
+          if ($media_id) {
+            $node->set('field_artist_image', ['target_id' => $media_id]);
+          }
+        }
+
+        // Update description
+        if (!empty($data['profile']) || !empty($data['description'])) {
+          $description = $data['profile'] ?? $data['description'];
+          $node->set('field_artist_description_long', [
+            'value' => $description,
+            'format' => 'basic_html',
+          ]);
+        }
+
+        // Update website
+        if (!empty($data['spotify_url']) || !empty($data['discogs_url'])) {
+          $url = $data['spotify_url'] ?? $data['discogs_url'];
+          $node->set('field_website', [
+            'uri' => $url,
+            'title' => !empty($data['spotify_url']) ? 'Spotify' : 'Discogs',
+          ]);
+        }
+
+        $node->save();
+
+        $this->loggerFactory->get('music_search')->info('Successfully updated artist: @name (nid: @nid)', [
+          '@name' => $node->label(),
+          '@nid' => $node->id(),
+        ]);
+
+        return $node;
+      }
+      elseif (!empty($existing_artists) && !$update_existing) {
+        $node = reset($existing_artists);
+
+        $this->loggerFactory->get('music_search')->warning('Artist already exists: @name (nid: @nid)', [
+          '@name' => $data['name'],
+          '@nid' => $node->id(),
+        ]);
+
+        return NULL;
+      }
+
+      $values = [
+        'type' => 'artist',
+        'title' => $data['name'],
+        'status' => 1,
+      ];
+
+      // Add all fields
+      if (!empty($data['spotify_id'])) {
+        $values['field_spotify_id'] = $data['spotify_id'];
+      }
+
+      if (!empty($data['discogs_id'])) {
+        $values['field_discogs_id'] = $data['discogs_id'];
+      }
+
+      if (!empty($data['genres']) && is_array($data['genres'])) {
+        $tids = $this->getOrCreateTerms($data['genres']);
+        if (!empty($tids)) {
+          $values['field_music_genre_artist'] = $tids;
+        }
+      }
+
+      if (!empty($data['image'])) {
+        $media_id = $this->createMediaFromUrl($data['image'], $data['name'] ?? 'Artist Image');
+        if ($media_id) {
+          $values['field_artist_image'] = ['target_id' => $media_id];
+        }
+      }
+
+      if (!empty($data['profile']) || !empty($data['description'])) {
+        $description = $data['profile'] ?? $data['description'];
+        $values['field_artist_description_long'] = [
+          'value' => $description,
+          'format' => 'basic_html',
+        ];
+      }
+
+      if (!empty($data['spotify_url']) || !empty($data['discogs_url'])) {
+        $url = $data['spotify_url'] ?? $data['discogs_url'];
+        $values['field_website'] = [
+          'uri' => $url,
+          'title' => !empty($data['spotify_url']) ? 'Spotify' : 'Discogs',
+        ];
+      }
+
+      $node = $node_storage->create($values);
+      $node->save();
+
+      $this->loggerFactory->get('music_search')->info('Created artist: @name (nid: @nid)', [
+        '@name' => $node->label(),
+        '@nid' => $node->id(),
+      ]);
+
+      return $node;
+    }
+    catch (\Exception $e) {
+      $this->loggerFactory->get('music_search')->error('Error creating/updating artist: @message', [
         '@message' => $e->getMessage(),
       ]);
       return NULL;
