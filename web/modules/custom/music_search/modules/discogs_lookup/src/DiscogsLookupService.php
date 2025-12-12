@@ -84,8 +84,6 @@ class DiscogsLookupService
 
       $data = json_decode($response->getBody(), TRUE);
 
-      $this->logger->info("Discogs get info", $data);
-
       return $this->formatResults($data, $type);
     }
     catch (RequestException $e) {
@@ -169,7 +167,6 @@ class DiscogsLookupService
         ];
       }
       elseif ($type === 'song') {
-        // Discogs doesn't have individual tracks in search, use releases
         $results[] = [
           'id' => $item['id'],
           'name' => $item['title'] ?? 'Unknown',
@@ -187,12 +184,24 @@ class DiscogsLookupService
    */
   protected function formatDetails($data, $type) {
     if ($type === 'artist') {
+      $members = [];
+      if (!empty($data['members']) && is_array($data['members'])) {
+        foreach ($data['members'] as $member) {
+          if (is_array($member) && !empty($member['name'])) {
+            $members[] = $member['name'];
+          }
+          elseif (is_string($member) && trim($member) !== '') {
+            $members[] = trim($member);
+          }
+        }
+      }
+
       return [
         'id' => $data['id'],
         'name' => $data['name'] ?? 'Unknown',
         'image' => $data['images'][0]['uri'] ?? NULL,
         'profile' => $data['profile'] ?? '',
-        'members' => $data['members'] ?? [],
+        'members' => $members,
         'genres' => array_merge($data['genres'] ?? [], $data['styles'] ?? []),
         'discogs_url' => $data['uri'] ?? NULL,
         'provider' => 'discogs',
