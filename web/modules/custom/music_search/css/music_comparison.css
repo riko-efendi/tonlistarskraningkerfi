@@ -1,0 +1,7 @@
+.result-item__image {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border-radius: 4px;
+}

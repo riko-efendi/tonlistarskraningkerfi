@@ -180,11 +180,20 @@ class MusicComparisonForm extends FormBase
       $default = NULL;
       $has_values = FALSE;
 
-      // Build options from each provider
+      // Build options from each provider - skip empty values
       foreach ($selections as $key => $selection) {
         $value = $selection['details'][$field_name] ?? NULL;
 
-        if ($value !== NULL && $value !== '' && $value !== '-') {
+        $is_empty = (
+          $value === NULL ||
+          $value === '' ||
+          $value === '-' ||
+          $value === 'null' ||
+          (is_array($value) && empty($value)) ||
+          (is_string($value) && trim($value) === '')
+        );
+
+        if (!$is_empty) {
           $has_values = TRUE;
 
           // Format the display value
@@ -200,33 +209,15 @@ class MusicComparisonForm extends FormBase
         }
       }
 
-      // Only add field if we have options
+      // ✅ Only add field if we have at least one non-empty value
       if (!empty($options) && $has_values) {
         $fields['field_' . $field_name] = [
           '#type' => 'radios',
           '#title' => $this->t('Select @field', ['@field' => $field_label]),
           '#options' => $options,
           '#default_value' => $default,
-          '#required' => $is_required,
+          '#required' => $is_required && count($options) > 0,  // Only required if options exist
           '#description' => $this->t('Choose which source to use for @field.', ['@field' => strtolower($field_label)]),
-        ];
-
-        // Show preview of values side-by-side
-        $preview = '<div style="margin-top: 5px; padding: 10px; background: #f5f5f5; border-radius: 3px;">';
-        $preview .= '<strong>Preview:</strong><br>';
-        foreach ($selections as $key => $selection) {
-          $value = $selection['details'][$field_name] ?? NULL;
-          if ($value !== NULL && $value !== '' && $value !== '-') {
-            $display = $this->formatFieldValue($value, $field_name, TRUE);
-            $preview .= '<span style="display: inline-block; margin-right: 15px;">';
-            $preview .= '<strong>' . ucfirst($selection['provider']) . ':</strong> ' . $display;
-            $preview .= '</span>';
-          }
-        }
-        $preview .= '</div>';
-
-        $fields['field_' . $field_name . '_preview'] = [
-          '#markup' => $preview,
         ];
       }
     }
@@ -310,7 +301,9 @@ class MusicComparisonForm extends FormBase
       $output .= '<h4>' . ucfirst($provider) . ': ' . htmlspecialchars($details['name']) . '</h4>';
 
       if (!empty($details['image'])) {
-        $output .= '<img src="' . htmlspecialchars($details['image']) . '" style="max-width: 150px; max-height: 150px;">';
+        $output .= '<img src="' . htmlspecialchars($details['image']) . '"
+        alt="' . htmlspecialchars($details['name']) . '"
+        class="result-item__image">';
       }
 
       $output .= '</div>';
@@ -359,6 +352,27 @@ class MusicComparisonForm extends FormBase
       if (!in_array($field_name, $all_fields)) {
         continue;
       }
+      $has_content = FALSE;
+      foreach ($selections as $selection) {
+        $value = $selection['details'][$field_name] ?? '-';
+
+        $is_empty = (
+          $value === '-' ||
+          $value === '' ||
+          $value === NULL ||
+          (is_array($value) && empty($value))
+        );
+
+        if (!$is_empty) {
+          $has_content = TRUE;
+          break;
+        }
+      }
+
+      // Skip this row if all values are empty
+      if (!$has_content) {
+        continue;
+      }
 
       $output .= '<tr>';
       $output .= '<td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; background: #fafafa;">';
@@ -371,10 +385,16 @@ class MusicComparisonForm extends FormBase
         $output .= '<td style="padding: 10px; border: 1px solid #ddd;">';
 
         if ($field_name === 'image' && !empty($value) && $value !== '-') {
-          $output .= '<img src="' . htmlspecialchars($value) . '" style="max-width: 100px; max-height: 100px; border-radius: 4px;">';
+          $output .= '<img src="' . htmlspecialchars($value) . '"
+          alt="' . htmlspecialchars($selection['details']['name'] ?? 'Image') . '"
+          class="result-item__image">';
         }
         elseif (is_array($value)) {
-          $output .= htmlspecialchars(implode(', ', $value));
+          if (empty($value)) {
+            $output .= '-';
+          } else {
+            $output .= htmlspecialchars(implode(', ', $value));
+          }
         }
         else {
           $output .= htmlspecialchars($value);

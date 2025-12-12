@@ -2,3 +2,7 @@ music_search:
   css:
     theme:
       css/music_search.css: {}
+comparison:
+  css:
+    theme:
+      css/music_comparison.css: {}
